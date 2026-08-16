@@ -1,0 +1,51 @@
+# Talos settings.
+#
+# Copy any section into config/local.toml to override it without touching this
+# file — local.toml is git-ignored and takes precedence key by key, so it only
+# needs the values you actually want to change.
+
+[assistant]
+name = "Talos"
+character_file = "config/character.md"
+# Turns of conversation kept in context. Each turn is a user message plus a
+# reply; the character definition is always present on top of these.
+history_turns = 6
+
+[audio]
+# 16 kHz because Whisper resamples to it anyway. Recording here avoids a
+# conversion on every utterance.
+sample_rate = 16000
+# Held down to talk. Released to send.
+hotkey = "f9"
+# Recording shorter than this is treated as a misfire rather than speech.
+min_seconds = 0.4
+# Anything below this peak amplitude is silence, and skips the whole chain.
+silence_threshold = 0.01
+
+[stt]
+model = "large-v3-turbo"
+language = "tr"
+# Greedy decoding. Measurably faster, and the accuracy cost on short
+# conversational utterances is small.
+beam_size = 1
+vad_filter = true
+
+[llm]
+model = "qwen3:8b"
+# Reasoning models write their thinking before answering, and none of it is
+# spoken. On qwen3:8b that was 12.6 s against 0.45 s. See MEASUREMENTS.md.
+think = false
+# Ollama unloads after five idle minutes; reloading 5 GB costs about a minute,
+# which would land mid-conversation.
+keep_alive = "30m"
+context = 4096
+temperature = 0.7
+
+[tts]
+engine = "piper"
+# Set these from whichever preset sounded best in scripts/tune_tts.py.
+# length_scale is the one that matters: below 1.0 is faster.
+length_scale = 1.0
+noise_w = 0.8
+noise_scale = 0.667
+sentence_silence = 0.15

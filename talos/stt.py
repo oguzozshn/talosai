@@ -1,0 +1,66 @@
+"""Speech to text, via faster-whisper on the GPU.
+
+Falls back to CPU when CUDA is unavailable. That is slower — roughly 0.3x real
+time against 0.04x — but it keeps the assistant working on a machine where the
+GPU libraries are missing rather than refusing to start.
+"""
+
+from __future__ import annotations
+
+import logging
+
+import numpy as np
+
+from talos.config import SttConfig
+from talos.cuda import register_cuda_dll_directories
+
+# Must happen before faster_whisper is imported: the DLL search path is read
+# when the CTranslate2 extension loads.
+register_cuda_dll_directories()
+
+from faster_whisper import WhisperModel  # noqa: E402
+
+log = logging.getLogger(__name__)
+
+
+class SpeechToText:
+    def __init__(self, config: SttConfig, sample_rate: int = 16_000) -> None:
+        self._config = config
+        self._sample_rate = sample_rate
+        self.device = "cpu"
+
+        try:
+            self._model = WhisperModel(
+                config.model, device="cuda", compute_type="int8_float16"
+            )
+            self.device = "cuda"
+        except Exception as exc:  # noqa: BLE001 — any failure means no usable GPU
+            log.warning("Whisper falling back to CPU: %s", exc)
+            self._model = WhisperModel(config.model, device="cpu", compute_type="int8")
+
+    def warm_up(self) -> None:
+        """Pay the kernel-compilation cost now instead of on the first sentence.
+
+        The first GPU inference compiles kernels and autotunes cuDNN, which
+        costs about a second. Doing it at startup rather than on the user's
+        first utterance is the difference between a fast assistant and one
+        that stutters exactly when first impressions are formed.
+        """
+        silence = np.zeros(self._sample_rate, dtype=np.float32)
+        try:
+            segments, _ = self._model.transcribe(silence, language=self._config.language)
+            # faster-whisper is lazy; the work only happens on consumption.
+            for _ in segments:
+                pass
+        except Exception as exc:  # noqa: BLE001 — warm-up is best effort
+            log.warning("Whisper warm-up failed: %s", exc)
+
+    def transcribe(self, audio: np.ndarray) -> str:
+        """Turn mono float32 audio into text. Returns "" for silence."""
+        segments, _ = self._model.transcribe(
+            audio,
+            language=self._config.language,
+            beam_size=self._config.beam_size,
+            vad_filter=self._config.vad_filter,
+        )
+        return " ".join(segment.text.strip() for segment in segments).strip()

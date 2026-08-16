@@ -1,0 +1,129 @@
+"""Load settings and the character definition.
+
+Two files, with different jobs. `config/settings.toml` is tracked and holds the
+defaults; `config/local.toml` is git-ignored and overrides them key by key, so
+a machine-specific tweak never shows up as a diff.
+
+The character definition lives in its own markdown file rather than in the TOML
+because it is prose that gets edited constantly during tuning, and prose inside
+a config value is miserable to edit.
+"""
+
+from __future__ import annotations
+
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parent.parent
+SETTINGS = ROOT / "config" / "settings.toml"
+LOCAL_SETTINGS = ROOT / "config" / "local.toml"
+
+
+@dataclass(frozen=True)
+class AssistantConfig:
+    name: str = "Talos"
+    character_file: str = "config/character.md"
+    history_turns: int = 6
+
+
+@dataclass(frozen=True)
+class AudioConfig:
+    sample_rate: int = 16_000
+    hotkey: str = "f9"
+    min_seconds: float = 0.4
+    silence_threshold: float = 0.01
+
+
+@dataclass(frozen=True)
+class SttConfig:
+    model: str = "large-v3-turbo"
+    language: str = "tr"
+    beam_size: int = 1
+    vad_filter: bool = True
+
+
+@dataclass(frozen=True)
+class LlmConfig:
+    model: str = "qwen3:8b"
+    think: bool = False
+    keep_alive: str = "30m"
+    context: int = 4096
+    temperature: float = 0.7
+
+
+@dataclass(frozen=True)
+class TtsConfig:
+    engine: str = "piper"
+    length_scale: float = 1.0
+    noise_w: float = 0.8
+    noise_scale: float = 0.667
+    sentence_silence: float = 0.15
+
+
+@dataclass(frozen=True)
+class Config:
+    assistant: AssistantConfig = field(default_factory=AssistantConfig)
+    audio: AudioConfig = field(default_factory=AudioConfig)
+    stt: SttConfig = field(default_factory=SttConfig)
+    llm: LlmConfig = field(default_factory=LlmConfig)
+    tts: TtsConfig = field(default_factory=TtsConfig)
+
+    @property
+    def character(self) -> str:
+        """The system prompt, read fresh from disk.
+
+        Not cached: during tuning the character gets edited between runs, and
+        a stale prompt is a confusing thing to debug.
+        """
+        path = ROOT / self.assistant.character_file
+        if not path.exists():
+            return f"You are {self.assistant.name}, a local voice assistant."
+
+        text = path.read_text(encoding="utf-8")
+        # The file is written for humans too, with a title and an explanatory
+        # preamble above a horizontal rule. Everything below the rule is the
+        # prompt itself.
+        _, separator, body = text.partition("\n---\n")
+        return (body if separator else text).strip()
+
+
+def _read(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
+
+
+def _section(data: dict[str, Any], name: str, cls: type) -> Any:
+    """Build one config dataclass, ignoring keys it does not define.
+
+    Unknown keys are skipped rather than raising: a settings file left over
+    from a later version should degrade to defaults, not refuse to start.
+    """
+    values = data.get(name, {})
+    known = {f for f in cls.__dataclass_fields__}
+    return cls(**{k: v for k, v in values.items() if k in known})
+
+
+def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge one level deep — sections merge, keys within them replace."""
+    merged = dict(base)
+    for section, values in override.items():
+        if isinstance(values, dict) and isinstance(merged.get(section), dict):
+            merged[section] = {**merged[section], **values}
+        else:
+            merged[section] = values
+    return merged
+
+
+def load() -> Config:
+    data = _merge(_read(SETTINGS), _read(LOCAL_SETTINGS))
+    return Config(
+        assistant=_section(data, "assistant", AssistantConfig),
+        audio=_section(data, "audio", AudioConfig),
+        stt=_section(data, "stt", SttConfig),
+        llm=_section(data, "llm", LlmConfig),
+        tts=_section(data, "tts", TtsConfig),
+    )
