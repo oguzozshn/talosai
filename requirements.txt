@@ -29,6 +29,12 @@ nvidia-cudnn-cu12>=9.1,<10
 # separately from https://ollama.com/download
 ollama>=0.4,<1
 
+# --- Input -----------------------------------------------------------------
+# Global hotkey for push-to-talk. Unlike `keyboard`, pynput does not need
+# administrator rights on Windows, and it reports key release, which is what
+# push-to-talk is built on.
+pynput>=1.7,<2
+
 # --- Wake word and voice activity detection (phase 2) ----------------------
 # Listed now because check_env.py reports on them, and because the ONNX
 # runtime is what lets both run on CPU without dragging in PyTorch.

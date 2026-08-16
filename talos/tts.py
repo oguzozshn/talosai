@@ -45,10 +45,20 @@ class VoiceUnavailable(RuntimeError):
 class Voice:
     """Speaks text aloud, one sentence at a time, in order."""
 
-    def __init__(self, config: TtsConfig) -> None:
+    def __init__(self, config: TtsConfig, *, mute: bool = False) -> None:
         self._config = config
+        # Muting belongs to the output device, not to the layer: synthesis
+        # still runs and is still timed, so a muted run exercises everything
+        # except the speaker.
+        self._mute = mute
         self._binary, self._voice = self._locate()
         self._sample_rate = self._read_sample_rate(self._voice)
+
+    def _play(self, audio: np.ndarray) -> None:
+        if self._mute:
+            return
+        sd.play(audio, self._sample_rate)
+        sd.wait()
 
     @staticmethod
     def _locate() -> tuple[Path, Path]:
@@ -120,8 +130,7 @@ class Voice:
         """Speak a single string, blocking until it finishes."""
         audio = self._synthesise(text)
         if audio is not None and audio.size:
-            sd.play(audio, self._sample_rate)
-            sd.wait()
+            self._play(audio)
 
     def say_stream(self, sentences: Iterable[str]) -> float | None:
         """Speak sentences as they arrive. Returns seconds until the first audio.
@@ -154,8 +163,7 @@ class Voice:
                     return
                 if first_audio is None:
                     first_audio = time.perf_counter() - started
-                sd.play(item, self._sample_rate)
-                sd.wait()
+                self._play(item)
 
         synth = threading.Thread(target=synth_worker, daemon=True)
         play = threading.Thread(target=play_worker, daemon=True)
