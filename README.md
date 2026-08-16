@@ -20,9 +20,28 @@ These are hard requirements, not preferences:
 | Wake word | openWakeWord | CPU |
 | Speech-to-text | faster-whisper (`large-v3-turbo`, int8) | GPU (~1.6 GB) |
 | Speaker verification | SpeechBrain ECAPA-TDNN | CPU |
-| Reasoning | Ollama (Gemma 3 12B / Qwen3 8B, Q4_K_M) | GPU (~5 GB) |
+| Reasoning | Ollama (Qwen3 8B, Q4_K_M) | GPU (~5.2 GB) |
 | Text-to-speech | Piper | CPU |
 | Memory | SQLite + sqlite-vec | CPU |
+
+### The VRAM budget is the whole design
+
+| | |
+|---|---|
+| Total | 8151 MB |
+| Reserved for the desktop | ~500 MB |
+| Whisper `large-v3-turbo`, int8 | ~1500 MB |
+| KV cache at 8k context | ~700 MB |
+| **Left for the model** | **~5400 MB** |
+
+Which rules out a 12B at Q4 — that is 8 GB on its own, and Ollama would quietly
+spill the remainder into system RAM, where generation slows by roughly an order
+of magnitude. Qwen3 8B fits with room to spare and is the better tool-caller
+anyway.
+
+If a larger model turns out to be worth it, the trade is to move Whisper to the
+CPU. Twenty threads transcribe close enough to real time that it is a viable
+swap, not a downgrade — measure both before deciding.
 
 ## Target hardware
 

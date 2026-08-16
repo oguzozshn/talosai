@@ -30,14 +30,24 @@ python scripts/test_llm.py
 needs a model pulled first:
 
 ```powershell
-ollama pull gemma3:12b
 ollama pull qwen3:8b
+ollama pull gemma3:4b
 ```
 
-Both, deliberately. Gemma handles Turkish better; Qwen is more reliable at tool
-calling. Which one wins is not decidable from documentation — phase 3 picks by
-measuring, and having both already local makes that a five-minute comparison
-instead of an afternoon.
+Both, deliberately. Qwen3 8B is the primary — it is the more reliable tool
+caller, and at roughly 5.2 GB it leaves room for Whisper on the same card.
+Gemma 3 4B is the comparison: noticeably better Turkish for its size, and small
+enough that it stays resident no matter what else is loaded.
+
+Which one wins is not decidable from documentation. Phase 3 picks by measuring;
+having both already local makes that a five-minute comparison instead of an
+afternoon.
+
+Note what is *not* in that list. Gemma 3 12B is the obvious reach, but at Q4 it
+is 8 GB by itself — Ollama would spill it into system RAM rather than refuse,
+and generation slows by roughly an order of magnitude. If you want to try it,
+move Whisper to the CPU first (`test_stt.py --cpu`) and compare the two configs
+end to end rather than guessing.
 
 ## Installing Piper
 

@@ -326,7 +326,7 @@ def check_ollama() -> Section:
             WARN,
             "Models",
             "none pulled",
-            "Try: ollama pull gemma3:12b   (and qwen3:8b to compare tool calling)",
+            "Try: ollama pull qwen3:8b   (and gemma3:4b to compare Turkish)",
         )
     else:
         names = [ln.split()[0] for ln in lines]

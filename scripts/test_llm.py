@@ -53,7 +53,7 @@ def main() -> int:
     model = args.model or first_available_model()
     if not model:
         print("No models found. Install Ollama, then pull one:")
-        print("  ollama pull gemma3:12b")
+        print("  ollama pull qwen3:8b")
         return 1
 
     print(f"Model:  {model}")
