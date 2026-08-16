@@ -64,13 +64,18 @@ It downloads roughly 80 MB into `vendor/piper/` and `models/piper/`, both
 git-ignored, and is safe to re-run — existing files are left alone unless you
 pass `--force`.
 
+Neither the release asset nor the voice path is hardcoded — both are resolved
+through their respective APIs, because both have moved before. `--voice` picks
+a specific one and lists what exists if the name is wrong; `--language` fetches
+a different language entirely.
+
 If it cannot reach GitHub or Hugging Face, do it by hand:
 
 1. `piper_windows_amd64.zip` from
    [the releases page](https://github.com/rhasspy/piper/releases) — unzip so
    that `vendor/piper/piper.exe` exists.
 2. The Turkish voice, both `.onnx` and `.onnx.json`, from
-   [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices/tree/main/tr/tr_TR/fettah/medium)
+   [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices/tree/main/tr/tr_TR/dfki/medium)
    — put them in `models/piper/`.
 
 Either way this can wait. `test_tts.py` falls back to the voice built into

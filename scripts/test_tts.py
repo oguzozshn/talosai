@@ -25,18 +25,10 @@ VOICE_DIR = ROOT / "models" / "piper"
 
 DEFAULT_TEXT = "Merhaba. Ben Talos. Çağırdığında buradayım."
 
-SETUP_HINT = f"""
-Piper is not installed yet. It is two downloads:
+SETUP_HINT = """
+Piper is not installed yet. Fetch it with:
 
-  1. The binary — piper_windows_amd64.zip from
-     https://github.com/rhasspy/piper/releases
-     Unzip so that this path exists:
-       {PIPER_DIR / "piper.exe"}
-
-  2. A Turkish voice — both the .onnx and the .onnx.json from
-     https://huggingface.co/rhasspy/piper-voices/tree/main/tr/tr_TR/fettah/medium
-     Put them in:
-       {VOICE_DIR}
+    run scripts\\fetch_piper.py
 
 Falling back to the built-in Windows voice for now. It will mispronounce
 Turkish badly — that is expected and does not mean anything is broken.

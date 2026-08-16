@@ -30,12 +30,14 @@ VOICE_DIR = ROOT / "models" / "piper"
 
 RELEASES_API = "https://api.github.com/repos/rhasspy/piper/releases"
 VOICES_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
+VOICES_TREE = "https://huggingface.co/api/models/rhasspy/piper-voices/tree/main"
 
-# tr_TR has exactly one voice family on piper-voices at the time of writing.
-# "medium" is the right default: "low" is noticeably robotic and "high" costs
-# more synthesis time than the latency budget has to spare.
-DEFAULT_VOICE = "tr_TR-fettah-medium"
-VOICE_PATHS = {"tr_TR-fettah-medium": "tr/tr_TR/fettah/medium"}
+DEFAULT_LANGUAGE = "tr/tr_TR"
+
+# "medium" first: "low" is noticeably robotic, and "high" costs more synthesis
+# time than the latency budget has to spare. The rest are fallbacks for
+# languages that do not publish a medium.
+QUALITY_PREFERENCE = ("medium", "high", "low", "x_low")
 
 USER_AGENT = "talos-setup"
 
@@ -139,35 +141,78 @@ def install_binary(force: bool) -> bool:
     return True
 
 
-def install_voice(voice: str, force: bool) -> bool:
-    subpath = VOICE_PATHS.get(voice)
-    if subpath is None:
-        print(f"Unknown voice '{voice}'. Known: {', '.join(VOICE_PATHS)}")
-        print("Browse others at https://huggingface.co/rhasspy/piper-voices")
+def resolve_voice(language: str, wanted: str | None) -> str | None:
+    """Find a voice model path under a language directory.
+
+    Asks the Hugging Face tree API rather than assuming a path. The voice
+    families are not stable enough to hardcode — tr_TR is published under
+    `dfki`, and guessing a name here produced two 404s and no useful error.
+
+    Returns the repo-relative path of the .onnx, or None.
+    """
+    try:
+        entries = json.loads(get(f"{VOICES_TREE}/{language}?recursive=true"))
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as exc:
+        print(f"Could not list voices for {language}: {exc}")
+        return None
+
+    models = [e["path"] for e in entries if e.get("path", "").endswith(".onnx")]
+    if not models:
+        print(f"No voices published under {language}.")
+        return None
+
+    if wanted:
+        matches = [p for p in models if Path(p).stem == wanted]
+        if not matches:
+            print(f"No voice named '{wanted}'. Available:")
+            for path in models:
+                print(f"  {Path(path).stem}")
+            return None
+        return matches[0]
+
+    for quality in QUALITY_PREFERENCE:
+        for path in models:
+            if f"/{quality}/" in path:
+                return path
+    return models[0]
+
+
+def install_voice(language: str, wanted: str | None, force: bool) -> bool:
+    model_path = resolve_voice(language, wanted)
+    if model_path is None:
         return False
 
+    name = Path(model_path).stem
     ok = True
     for suffix in (".onnx", ".onnx.json"):
-        target = VOICE_DIR / f"{voice}{suffix}"
+        target = VOICE_DIR / f"{name}{suffix}"
         if target.exists() and not force:
             print(f"Voice file already present: {target.name}")
             continue
-        print(f"Downloading {voice}{suffix}")
-        if not download(f"{VOICES_BASE}/{subpath}/{voice}{suffix}", target):
+        print(f"Downloading {name}{suffix}")
+        if not download(f"{VOICES_BASE}/{model_path[:-5]}{suffix}", target):
             ok = False
     return ok
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--voice", default=DEFAULT_VOICE)
+    parser.add_argument(
+        "--language",
+        default=DEFAULT_LANGUAGE,
+        help="repo language directory, e.g. tr/tr_TR or en/en_US",
+    )
+    parser.add_argument(
+        "--voice",
+        help="specific voice name; by default the best available quality is picked",
+    )
     parser.add_argument("--force", action="store_true", help="re-download even if present")
     args = parser.parse_args()
 
     print("Fetching Piper\n")
     binary_ok = install_binary(args.force)
     print()
-    voice_ok = install_voice(args.voice, args.force)
+    voice_ok = install_voice(args.language, args.voice, args.force)
 
     print()
     if binary_ok and voice_ok:
