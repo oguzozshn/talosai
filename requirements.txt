@@ -12,9 +12,17 @@ numpy>=1.26,<3
 
 # --- Speech to text --------------------------------------------------------
 # faster-whisper runs on CTranslate2, not PyTorch, so phases 0 and 1 need no
-# torch install at all. CUDA support additionally requires cuDNN 9 for CUDA 12
-# to be findable on PATH; check_env.py reports whether it is.
+# torch install at all.
 faster-whisper>=1.1,<2
+
+# CTranslate2 needs cuBLAS and cuDNN to actually run on the GPU. Taking them as
+# pip packages keeps them inside the venv instead of requiring the full CUDA
+# Toolkit system-wide. Their DLLs land in site-packages, which Windows does not
+# search, so talos/cuda.py registers the directories at startup.
+#
+# cuDNN must be 9.x: faster-whisper 1.1 dropped support for 8.
+nvidia-cublas-cu12>=12.4
+nvidia-cudnn-cu12>=9.1,<10
 
 # --- Reasoning -------------------------------------------------------------
 # Thin client over the local Ollama HTTP service. Ollama itself is installed

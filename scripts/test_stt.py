@@ -16,13 +16,22 @@ Defaults to data/sample.wav, which test_mic.py writes.
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from pathlib import Path
 
-import soundfile as sf
-from faster_whisper import WhisperModel
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+# Must run before faster_whisper is imported: the DLL search path is read when
+# the CTranslate2 extension loads, so registering afterwards has no effect.
+from talos.cuda import register_cuda_dll_directories  # noqa: E402
+
+register_cuda_dll_directories()
+
+import soundfile as sf  # noqa: E402
+from faster_whisper import WhisperModel  # noqa: E402
+
 DEFAULT_WAV = ROOT / "data" / "sample.wav"
 
 # large-v3-turbo is 809M parameters — roughly a quarter the cost of large-v3
@@ -70,29 +79,48 @@ def main() -> int:
     print(f"Loading {args.model} — first run downloads ~1.5 GB, be patient.")
     model, device = load(args.model, args.cpu)
 
-    print("\nTranscribing...")
-    started = time.perf_counter()
-    segments, result = model.transcribe(
-        str(wav),
-        language=LANGUAGE,
-        beam_size=1,  # greedy: measurably faster, and the accuracy cost is small
-        vad_filter=True,  # drop leading and trailing silence
-    )
-    # faster-whisper is lazy — the work happens as segments are consumed.
-    text = " ".join(segment.text.strip() for segment in segments)
-    elapsed = time.perf_counter() - started
+    def transcribe() -> tuple[str, object, float]:
+        started = time.perf_counter()
+        segments, result = model.transcribe(
+            str(wav),
+            language=LANGUAGE,
+            beam_size=1,  # greedy: measurably faster, and the accuracy cost is small
+            vad_filter=True,  # drop leading and trailing silence
+        )
+        # faster-whisper is lazy — the work happens as segments are consumed.
+        text = " ".join(segment.text.strip() for segment in segments)
+        return text, result, time.perf_counter() - started
 
-    print(f"\n  \"{text}\"\n")
+    # The first call on a GPU pays for kernel compilation and cuDNN autotuning,
+    # which on this model is several seconds — enough to make a warm system look
+    # 25x slower than it is. Both numbers matter, so report both: the cold one
+    # is what the first utterance after startup costs, the warm one is what the
+    # latency budget is actually built on. Phase 1 hides the cold cost by
+    # warming the model at startup rather than on the user's first sentence.
+    print("\nTranscribing (cold)...")
+    _, _, cold = transcribe()
+
+    print("Transcribing (warm)...")
+    text, result, warm = transcribe()
+
+    print(f'\n  "{text}"\n')
     print(f"  device            {device}")
     print(f"  detected language {result.language} ({result.language_probability:.0%})")
-    print(f"  transcribe time   {elapsed:.2f}s")
-    print(f"  real-time factor  {elapsed / duration:.2f}x")
+    print(f"  first call        {cold:.2f}s   ({cold / duration:.2f}x real time)")
+    print(f"  steady state      {warm:.2f}s   ({warm / duration:.2f}x real time)")
 
-    if elapsed / duration > 0.3:
-        print(
-            "\nSlower than the latency budget allows. Options, in order of\n"
-            "preference: get CUDA working, or drop to the 'small' model."
-        )
+    rtf = warm / duration
+    if rtf > 0.3:
+        if device == "cpu":
+            print(
+                "\nToo slow for the latency budget. Getting CUDA working is the\n"
+                "fix — see talos/cuda.py for what that needs."
+            )
+        else:
+            print(
+                "\nToo slow for the latency budget even on the GPU. Drop to the\n"
+                "'small' model:  run scripts\\test_stt.py --model small"
+            )
     return 0
 
 
