@@ -38,19 +38,37 @@ def resolve_hotkey(name: str):
     return key
 
 
+def console_confirm(skill_name: str, permission) -> bool:
+    """Ask at the terminal before a skill that changes something runs.
+
+    A stopgap. The point of the permission tiers is that the answer comes by
+    voice, and for the OWNER tier that the voice is verified — neither of which
+    exists until phase 2. Asking at the keyboard is honest in the meantime:
+    it does block the action, it just blocks it in the wrong place.
+    """
+    print(f"\n  '{skill_name}' needs permission ({permission.value}).")
+    try:
+        answer = input("  Allow? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer in {"y", "yes", "e", "evet"}
+
+
 def start_up(config, mute: bool) -> Assistant:
     print("Talos")
     print("=====\n")
     print("Warming up — this is the cold-start cost, paid once so the first")
     print("sentence does not pay it.\n")
 
-    assistant = Assistant(config, mute=mute)
+    assistant = Assistant(config, mute=mute, confirm=console_confirm)
     print(f"  speech    {config.stt.model} on {assistant.ears.device}")
     print(f"  reasoning {config.llm.model}")
     if assistant.voice is not None:
         print(f"  voice     {assistant.voice.voice_name}")
     else:
         print("  voice     unavailable — replies will be printed only")
+    if assistant.skills:
+        print(f"  skills    {len(assistant.skills)}: {', '.join(assistant.skills.names)}")
     print()
 
     assistant.warm_up()

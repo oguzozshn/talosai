@@ -54,6 +54,17 @@ class LlmConfig:
 
 
 @dataclass(frozen=True)
+class SkillsConfig:
+    enabled: bool = True
+    # The only directory skills may read. Everything outside is refused.
+    workspace: str = "~"
+    # How many times the model may call a skill and be handed the result
+    # before it has to answer. Without a ceiling, a model that misreads a
+    # result can call the same skill forever.
+    max_rounds: int = 3
+
+
+@dataclass(frozen=True)
 class TtsConfig:
     engine: str = "piper"
     length_scale: float = 1.0
@@ -69,6 +80,7 @@ class Config:
     stt: SttConfig = field(default_factory=SttConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
     tts: TtsConfig = field(default_factory=TtsConfig)
+    skills: SkillsConfig = field(default_factory=SkillsConfig)
 
     @property
     def character(self) -> str:
@@ -126,4 +138,5 @@ def load() -> Config:
         stt=_section(data, "stt", SttConfig),
         llm=_section(data, "llm", LlmConfig),
         tts=_section(data, "tts", TtsConfig),
+        skills=_section(data, "skills", SkillsConfig),
     )

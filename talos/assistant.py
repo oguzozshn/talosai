@@ -16,6 +16,8 @@ import numpy as np
 
 from talos.config import Config
 from talos.llm import Brain
+from talos.skills import ConfirmFn, Registry
+from talos.skills import load as load_skills
 from talos.stt import SpeechToText
 from talos.tts import Voice, VoiceUnavailable
 
@@ -46,12 +48,30 @@ class Turn:
 
 
 class Assistant:
-    def __init__(self, config: Config, *, mute: bool = False) -> None:
+    def __init__(
+        self,
+        config: Config,
+        *,
+        mute: bool = False,
+        confirm: ConfirmFn | None = None,
+    ) -> None:
         self.config = config
         self.mute = mute
 
+        # No confirm callback means skills above OPEN refuse rather than run.
+        # That is the right default: an assistant with no way to ask should not
+        # decide on the user's behalf.
+        self.skills: Registry | None = load_skills() if config.skills.enabled else None
+
         self.ears = SpeechToText(config.stt, config.audio.sample_rate)
-        self.brain = Brain(config.llm, config.assistant, config.character)
+        self.brain = Brain(
+            config.llm,
+            config.assistant,
+            config.character,
+            registry=self.skills,
+            confirm=confirm,
+            max_rounds=config.skills.max_rounds,
+        )
 
         self.voice: Voice | None = None
         try:

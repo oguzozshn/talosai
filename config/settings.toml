@@ -41,6 +41,16 @@ keep_alive = "30m"
 context = 4096
 temperature = 0.7
 
+[skills]
+enabled = true
+# The only directory skills may read. Anything outside is refused, including
+# via symlinks or "..". Change this and the assistant's reach changes with it.
+workspace = "C:/Users/oguzo/OneDrive/Desktop/Mhendislik/Projects"
+# How many times the model may call a skill and be handed the result before it
+# has to answer. Without a ceiling, a model that misreads a result will call
+# the same skill forever.
+max_rounds = 3
+
 [tts]
 engine = "piper"
 # Set these from whichever preset sounded best in scripts/tune_tts.py.

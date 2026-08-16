@@ -70,8 +70,42 @@ exactly the kind of filler question the character definition tells it not to
 ask. Against that, Qwen is expected to be the better tool caller, which is what
 phase 3 depends on. Decide it there, by measuring, not here.
 
+## The assembled chain
+
+Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the
+start of the turn to the first sample leaving the synthesiser.
+
+| Turn | First audio | Total |
+|---|---|---|
+| Plain answer | **0.93 s** | 2.06 s |
+| Answer requiring a skill call | **9.52 s** | 10.01 s |
+
+Add ~0.22 s of transcription for a spoken turn. That puts a plain exchange
+around 1.2 s against a 1.4 s budget.
+
+### Attaching tools is free until one is used
+
+The worry was that seven tool schemas in every request would tax every answer.
+It does not:
+
+| | First audio |
+|---|---|
+| Skills enabled, no skill needed | 0.93 s |
+| Skills disabled entirely | 0.97 s |
+
+Within noise. Prefill of the schemas is cheap next to generation, so there is
+no reason to gate tools behind a classifier or trim the toolset for latency.
+
+### A skill call costs a full extra round trip
+
+0.93 s to 9.52 s is the real price, and it is structural rather than
+incidental: the model generates the call, the skill runs, and then the whole
+conversation is prefilled again for the answer. Ten seconds is too long to sit
+in silence, so phase 3 should say something before the tool runs — an
+acknowledgement covers the gap that no amount of optimisation will close.
+
 ## Not yet measured
 
 - End-of-speech detection (phase 2)
-- Text-to-speech — Piper not fetched yet
-- The assembled chain, which is the only number that actually matters
+- Whether a spoken turn matches the text-mode numbers
+- Tool-calling reliability, which is what actually decides Qwen versus Gemma
