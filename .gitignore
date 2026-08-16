@@ -1,0 +1,30 @@
+# Virtual environment (kept outside the repo, but ignore it if one lands here)
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local runtime data: voice profile, conversation log, embeddings
+data/
+!data/.gitkeep
+
+# Downloaded models and binaries (multi-GB, never commit)
+models/
+vendor/
+
+# Recorded audio
+*.wav
+*.mp3
+*.ogg
+
+# Local overrides
+config/local.toml
+.env
+
+# OS
+Thumbs.db
+desktop.ini
