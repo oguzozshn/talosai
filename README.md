@@ -76,11 +76,41 @@ first thing that goes wrong when setting this up.
 
 See [`scripts/README.md`](scripts/README.md) for what each verification script proves.
 
+## Running it
+
+```
+run main.py                  hold F9, speak, release
+run main.py --text           type instead of speaking
+run main.py --say "merhaba"  one exchange, then exit
+run main.py --mute           run the whole chain but stay silent
+```
+
 ## Project status
 
-**Phase 0 — environment and verification.** Nothing is wired together yet; each
-component is being proven in isolation first. See [ROADMAP.md](ROADMAP.md) for the
-full plan and what each phase delivers.
+Phases 0, 1 and 3 are built. A spoken turn works end to end, and skills are
+discovered from files and called by the model.
+
+| Phase | State |
+|---|---|
+| 0 — environment | Done. Numbers in [MEASUREMENTS.md](MEASUREMENTS.md) |
+| 1 — the chain | Done, push-to-talk. 0.93 s to first audio |
+| 2 — voice and wake word | Not started. Needs voice recordings |
+| 3 — skills | Built: 7 skills, sandboxed, permission-tiered |
+| 4 — memory | Not started |
+| 5 — living with it | Not started |
+
+Phase 2 is out of order deliberately: it cannot be built without sitting at the
+microphone, so phase 3 went first. See [ROADMAP.md](ROADMAP.md).
+
+### Known rough edges
+
+- The Turkish Piper voice (`tr_TR-dfki-medium`) is the only one published, and
+  it is deep and stilted. Replacing the engine costs VRAM and would force a
+  smaller model — see MEASUREMENTS.md for the arithmetic.
+- A turn that calls a skill takes about ten seconds. The model should say
+  something before the tool runs rather than leave silence.
+- Ollama's tray app does not start the server on this machine; `ollama serve`
+  has to be run by hand.
 
 ## Layout
 

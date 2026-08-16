@@ -73,6 +73,13 @@ which layer is at fault when the wake word version misbehaves.
 
 ---
 
+**Built.** `main.py` runs the chain with F9 as push-to-talk, plus `--text`,
+`--say` and `--mute` for development. Every component warms up at startup so
+the cold costs are never paid in conversation. Measured 0.93 s to first audio
+for a plain exchange.
+
+---
+
 ## Phase 2 — Speaker verification and wake word
 
 **Deliverable:** the hotkey goes away.
@@ -117,6 +124,20 @@ sometimes call the wrong tool or malform arguments. Keep the toolset small and
 strictly validated — five reliable skills beat twenty flaky ones. If Gemma
 handles tool calls badly, Qwen3 is the fallback; pull both in phase 0 and
 compare.
+
+**Built, ahead of phase 2**, because phase 2 cannot be written without sitting
+at a microphone and this could be. Seven skills, schemas derived from function
+signatures, one sandbox every path goes through, three permission tiers.
+
+Two things still open:
+
+- **The comparison has not been run.** Qwen3 calls tools correctly in the cases
+  tried, but "correctly in the cases tried" is not a measurement. Gemma has not
+  been tried at all. This is what the model choice turns on.
+- **A skill call takes about ten seconds**, against one for a plain answer. The
+  extra round trip is structural and will not optimise away, so the assistant
+  should acknowledge before the tool runs rather than leaving ten seconds of
+  silence.
 
 ---
 
