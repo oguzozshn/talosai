@@ -16,14 +16,16 @@ Run them in this order:
 
 ## Typical first run
 
-```powershell
-& "$env:USERPROFILE\.venvs\talos\Scripts\Activate.ps1"
+Use `run.cmd` in the project root — it finds the venv interpreter itself, so
+there is no activation step to get wrong and it behaves identically in cmd and
+PowerShell:
 
-python scripts/check_env.py
-python scripts/test_mic.py          # writes data/sample.wav
-python scripts/test_stt.py          # reads it back
-python scripts/test_tts.py
-python scripts/test_llm.py
+```
+run scripts\check_env.py
+run scripts\test_mic.py          REM writes data/sample.wav
+run scripts\test_stt.py          REM reads it back
+run scripts\test_tts.py
+run scripts\test_llm.py
 ```
 
 `test_stt.py` downloads roughly 1.5 GB of model on its first run. `test_llm.py`

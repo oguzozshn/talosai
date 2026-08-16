@@ -65,9 +65,14 @@ pip install -r requirements.txt
 
 Then verify each component independently before wiring anything together:
 
-```powershell
-python scripts/check_env.py
 ```
+run scripts\check_env.py
+```
+
+`run.cmd` calls the venv interpreter directly instead of activating it, so it
+behaves the same in cmd and PowerShell and works from any directory. Activation
+syntax differs between the two shells, and getting it wrong is reliably the
+first thing that goes wrong when setting this up.
 
 See [`scripts/README.md`](scripts/README.md) for what each verification script proves.
 
