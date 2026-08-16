@@ -10,18 +10,30 @@ something breaks, you have no idea which layer broke.
 
 **Deliverable:** four independent scripts, all passing. Nothing wired together.
 
-- [ ] Python 3.12 virtual environment, created outside OneDrive
-- [ ] Ollama installed, a model pulled, working from the terminal
-- [ ] `check_env.py` — reports GPU, CUDA, and which components can use it
-- [ ] `test_mic.py` — record five seconds, play it back
-- [ ] `test_stt.py` — transcribe a wav file, report elapsed time
-- [ ] `test_tts.py` — speak a sentence
-- [ ] `test_llm.py` — one round trip through Ollama, report time to first token
+- [x] Python 3.12 virtual environment, created outside OneDrive
+- [x] Ollama installed, `qwen3:8b` pulled and answering
+- [x] `check_env.py` — reports GPU, CUDA, and which components can use it
+- [x] `test_mic.py` — record five seconds, play it back
+- [x] `test_stt.py` — transcribe a wav file, report elapsed time
+- [ ] `test_tts.py` — speak a sentence *(Piper not yet fetched)*
+- [x] `test_llm.py` — one round trip through Ollama, report time to first token
 
-**Risk:** Blackwell (`sm_120`) is new enough that older CUDA builds will not
-recognise the GPU and will quietly fall back to CPU. `check_env.py` exists to
-make that failure loud instead of silent. CPU fallback still works — it is just
-slower — so this is not a blocker, only something to know about.
+**Blackwell turned out to be fine**, but not for free. `nvidia-smi` saw the card
+and `ctranslate2.get_cuda_device_count()` returned 1, and both were misleading:
+the first inference still died on a missing `cublas64_12.dll`. The driver-level
+check says nothing about whether the compute libraries are present. See
+`talos/cuda.py`.
+
+**Two traps that make a healthy machine look broken**, both worth knowing
+before trusting any measurement here:
+
+- *The first GPU call is not representative.* Kernel compilation and cuDNN
+  autotuning made transcription look 25x slower than it is. Measure a warm
+  call; warm the models at startup so users never see the cold one.
+- *Reasoning models think before they answer.* Qwen3 emits its reasoning into
+  a separate field, so a naive time-to-first-token measurement is really
+  time-to-finished-thinking — 12.6 s against 0.45 s with thinking off. None of
+  it would be spoken aloud, so it is pure latency. Thinking stays off.
 
 ---
 
@@ -32,15 +44,24 @@ slower — so this is not a blocker, only something to know about.
 Hold a hotkey, speak, release. Transcribe, think, answer aloud. No memory, no
 skills, no wake word — but working end to end.
 
-Log the duration of every step. The latency budget:
+Log the duration of every step. The budget, against what phase 0 actually
+measured on the target machine:
 
-| Step | Target |
-|---|---|
-| End-of-speech detection | 0.5 s |
-| Transcription (turbo, GPU) | 0.4 s |
-| First token from the model | 0.3 s |
-| First audio from TTS | 0.15 s |
-| **Perceived latency** | **~1.4 s** |
+| Step | Budget | Measured |
+|---|---|---|
+| End-of-speech detection | 0.5 s | — |
+| Transcription (turbo, GPU) | 0.4 s | **0.22 s** |
+| First token from the model | 0.3 s | **0.35 s** |
+| First audio from TTS | 0.15 s | — |
+| **Perceived latency** | **~1.4 s** | — |
+
+Two components are still unmeasured, and both are the assembled system's
+problem rather than a component's, so phase 1 is where the real number appears.
+
+Note what these figures assume: models already resident. A cold Whisper call
+costs 0.97 s, and a cold model load about 60 s for 5 GB. Ollama unloads after
+five idle minutes by default, which would land that 60 s in the middle of a
+conversation — so requests pin `keep_alive`, and startup warms both models.
 
 Responses stream: the model writes, and TTS starts speaking sentence by sentence
 rather than waiting for the full answer. Past roughly 2.5 seconds it stops

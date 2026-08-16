@@ -13,7 +13,6 @@ With no model given, uses whichever one Ollama lists first.
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import time
 
@@ -34,25 +33,41 @@ plainly instead of guessing."""
 
 
 def first_available_model() -> str | None:
+    """Ask the Ollama service what it has, over HTTP.
+
+    Deliberately not `subprocess.run(["ollama", "list"])`: the CLI is only on
+    PATH in shells started after the installer ran, so shelling out reports
+    "no models" on a machine that has them. The service is what actually
+    matters here, and the client talks to it directly.
+    """
     try:
-        proc = subprocess.run(
-            ["ollama", "list"], capture_output=True, text=True, timeout=30
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        listing = ollama.list()
+    except Exception:  # noqa: BLE001 — unreachable service is handled by the caller
         return None
-    lines = [ln for ln in proc.stdout.strip().splitlines()[1:] if ln.strip()]
-    return lines[0].split()[0] if lines else None
+
+    # The client returned plain dicts before 0.4 and typed objects after.
+    models = getattr(listing, "models", None) or listing.get("models", [])
+    names = [getattr(m, "model", None) or m.get("model") or m.get("name") for m in models]
+    available = [n for n in names if n]
+    return available[0] if available else None
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model")
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
+    parser.add_argument(
+        "--think",
+        action="store_true",
+        help="let a reasoning model think first (measurably slower; see below)",
+    )
     args = parser.parse_args()
 
     model = args.model or first_available_model()
     if not model:
-        print("No models found. Install Ollama, then pull one:")
+        print("No models available. Either the Ollama service is not running,")
+        print("or nothing has been pulled yet:")
+        print("  ollama serve")
         print("  ollama pull qwen3:8b")
         return 1
 
@@ -64,14 +79,29 @@ def main() -> int:
         {"role": "user", "content": args.prompt},
     ]
 
+    print(f"Thinking: {'on' if args.think else 'off'}\n")
+
     started = time.perf_counter()
     first_token_at: float | None = None
     tokens = 0
+    thinking_chars = 0
 
     try:
-        stream = ollama.chat(model=model, messages=messages, stream=True)
+        # keep_alive matters as much as the model choice here. Ollama unloads
+        # after five idle minutes by default, and reloading 5 GB costs about a
+        # minute — which a voice assistant would pay in the middle of a
+        # conversation. Phase 1 keeps the model resident.
+        stream = ollama.chat(
+            model=model,
+            messages=messages,
+            stream=True,
+            think=args.think,
+            keep_alive="30m",
+        )
         for chunk in stream:
-            piece = chunk.get("message", {}).get("content", "")
+            message = chunk.get("message", {})
+            thinking_chars += len(message.get("thinking") or "")
+            piece = message.get("content", "")
             if not piece:
                 continue
             if first_token_at is None:
@@ -96,13 +126,23 @@ def main() -> int:
     print(f"  time to first token  {first_token_at:.2f}s")
     print(f"  total                {total:.2f}s")
     print(f"  throughput           {tokens / max(total, 1e-6):.1f} chunks/s")
+    if thinking_chars:
+        print(f"  thinking             {thinking_chars} characters before answering")
 
     if first_token_at > 0.6:
-        print(
-            "\nSlow to start. Usually means the model was cold — run it again.\n"
-            "If it stays slow, the model is spilling out of VRAM into system RAM;\n"
-            "drop to a smaller quantisation or a smaller model."
-        )
+        if thinking_chars:
+            print(
+                "\nThat is the reasoning trace, not the machine being slow. The\n"
+                "model writes its thinking before the answer, and none of it is\n"
+                "spoken. Drop --think to see the difference."
+            )
+        else:
+            print(
+                "\nSlow to start. If this was the first call, the model was being\n"
+                "loaded into VRAM — run it again. If it stays slow, check\n"
+                "'ollama ps': anything less than 100% GPU means it is spilling\n"
+                "into system RAM, and a smaller model is the fix."
+            )
     return 0
 
 

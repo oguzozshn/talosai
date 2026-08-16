@@ -295,10 +295,31 @@ def check_cuda_runtime() -> Section:
     return section
 
 
+def find_ollama() -> str | None:
+    """Locate the Ollama binary.
+
+    PATH alone is not enough: the installer adds it, but only shells started
+    afterwards inherit the change, so a freshly installed Ollama looks missing
+    until the user opens a new terminal. Fall back to the default install
+    location before concluding it is absent.
+    """
+    found = shutil.which("ollama")
+    if found:
+        return found
+
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        candidate = os.path.join(local, "Programs", "Ollama", "ollama.exe")
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def check_ollama() -> Section:
     section = Section("Ollama")
 
-    if not shutil.which("ollama"):
+    binary = find_ollama()
+    if not binary:
         section.add(
             FAIL,
             "Ollama",
@@ -307,16 +328,26 @@ def check_ollama() -> Section:
         )
         return section
 
-    code, out = run("ollama", "--version")
+    code, out = run(binary, "--version")
     section.add(OK, "Ollama", out.strip().splitlines()[0] if out.strip() else "installed")
+    if not shutil.which("ollama"):
+        section.add(
+            WARN,
+            "PATH",
+            "installed but not on PATH in this shell",
+            "Scripts that shell out to the CLI will not find it until you open "
+            "a new terminal. Nothing in Talos depends on that — it talks to the "
+            "service over HTTP — but it is worth knowing.",
+        )
 
-    code, out = run("ollama", "list", timeout=30)
+    code, out = run(binary, "list", timeout=30)
     if code != 0:
         section.add(
             WARN,
             "Service",
             "not responding",
-            "The background service may not be running. Launch the Ollama app.",
+            "The background service is not running. Start it with 'ollama serve', "
+            "or launch the Ollama app.",
         )
         return section
 
