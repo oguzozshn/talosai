@@ -51,8 +51,18 @@ end to end rather than guessing.
 
 ## Installing Piper
 
-Piper has no usable Windows wheel, so it is a binary and a voice file rather
-than a pip install:
+Piper has no usable Windows wheel — it is a binary plus two voice files, from
+two different sites. `fetch_piper.py` collects them:
+
+```powershell
+python scripts/fetch_piper.py
+```
+
+It downloads roughly 80 MB into `vendor/piper/` and `models/piper/`, both
+git-ignored, and is safe to re-run — existing files are left alone unless you
+pass `--force`.
+
+If it cannot reach GitHub or Hugging Face, do it by hand:
 
 1. `piper_windows_amd64.zip` from
    [the releases page](https://github.com/rhasspy/piper/releases) — unzip so
@@ -61,8 +71,8 @@ than a pip install:
    [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices/tree/main/tr/tr_TR/fettah/medium)
    — put them in `models/piper/`.
 
-Both directories are git-ignored. `test_tts.py` works without either, using the
-voice built into Windows, so this can wait until the rest of the chain runs.
+Either way this can wait. `test_tts.py` falls back to the voice built into
+Windows, which mangles Turkish but proves the audio output path works.
 
 ## Numbers worth writing down
 
