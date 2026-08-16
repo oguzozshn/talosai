@@ -1,0 +1,32 @@
+# Talos dependencies. Python 3.12 — do not use 3.13+, several of these have no
+# wheels for it yet.
+#
+# Deliberately loose bounds: this stack moves fast and pinning exact versions
+# on a machine this new (Blackwell) tends to pin you to a build that predates
+# support for the GPU.
+
+# --- Audio I/O -------------------------------------------------------------
+sounddevice>=0.5,<0.6
+soundfile>=0.12,<0.14
+numpy>=1.26,<3
+
+# --- Speech to text --------------------------------------------------------
+# faster-whisper runs on CTranslate2, not PyTorch, so phases 0 and 1 need no
+# torch install at all. CUDA support additionally requires cuDNN 9 for CUDA 12
+# to be findable on PATH; check_env.py reports whether it is.
+faster-whisper>=1.1,<2
+
+# --- Reasoning -------------------------------------------------------------
+# Thin client over the local Ollama HTTP service. Ollama itself is installed
+# separately from https://ollama.com/download
+ollama>=0.4,<1
+
+# --- Wake word and voice activity detection (phase 2) ----------------------
+# Listed now because check_env.py reports on them, and because the ONNX
+# runtime is what lets both run on CPU without dragging in PyTorch.
+onnxruntime>=1.17,<2
+
+# --- Text to speech --------------------------------------------------------
+# Piper is invoked as an external binary on Windows rather than a Python
+# package; scripts/test_tts.py locates it and falls back to the built-in
+# Windows voice if it is not there yet. See scripts/README.md.
