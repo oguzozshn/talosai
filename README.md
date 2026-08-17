@@ -126,6 +126,13 @@ in the seconds after a reply, when Talos is still listening.
 - Ollama's tray app does not start the server on this machine; `ollama serve`
   has to be run by hand.
 
+## Changing it
+
+[HACKING.md](HACKING.md) covers where its reach is configured, how to change
+how it behaves, and how to add a skill — which is one file with one function
+in it. It also lists the traps this project already fell into, which is the
+part worth reading before writing anything.
+
 ## Layout
 
 ```
