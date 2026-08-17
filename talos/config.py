@@ -72,6 +72,8 @@ class SkillsConfig:
 @dataclass(frozen=True)
 class TtsConfig:
     engine: str = "piper"
+    # Name fragment of the voice file to use. Empty takes whatever is present.
+    voice: str = ""
     length_scale: float = 1.0
     noise_w: float = 0.8
     noise_scale: float = 0.667

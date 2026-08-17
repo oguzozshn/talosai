@@ -30,6 +30,40 @@ _SENTENCE_END = re.compile(r"(?<=[.!?:;])\s+(?=[^\d\s])|\n+")
 # waits for a full paragraph.
 _MAX_CLAUSE_CHARS = 180
 
+# The character definition tells the model not to use markdown, and it mostly
+# obeys — but "mostly" is not good enough when the failure is a synthesiser
+# reading asterisks aloud. Strip it here as well, because a rule enforced only
+# by a prompt is not enforced.
+_LIST_MARKER = re.compile(r"^[ \t]*(?:[-*+•]|\d+[.)])[ \t]+", re.MULTILINE)
+_HEADING = re.compile(r"^[ \t]*#{1,6}[ \t]*", re.MULTILINE)
+_EMPHASIS = re.compile(r"(\*{1,3}|_{2,3})(.+?)\1", re.DOTALL)
+_CODE = re.compile(r"`+([^`]*)`+")
+_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
+# Left over once markers are gone: a line that was only "1." or "-".
+_EMPTY_ITEM = re.compile(r"^[\s\-*•.]*$")
+
+
+def _strip_line_markers(text: str) -> str:
+    """Remove list and heading markers. Line-local, so safe on a partial buffer.
+
+    Done before splitting rather than after: "1." followed by a newline reads
+    as a finished sentence, so leaving the marker in produces a fragment that
+    gets synthesised on its own — the assistant literally saying "one".
+    """
+    return _HEADING.sub("", _LIST_MARKER.sub("", text))
+
+
+def _strip_inline(text: str) -> str:
+    """Remove emphasis, code spans and links from a complete sentence.
+
+    After splitting, because these are paired and a half-arrived pair would be
+    mangled if stripped from a buffer still being filled.
+    """
+    text = _LINK.sub(r"\1", text)
+    text = _EMPHASIS.sub(r"\2", text)
+    text = _CODE.sub(r"\1", text)
+    return " ".join(text.split())
+
 
 def _split(buffer: str) -> tuple[list[str], str]:
     """Pull complete sentences out of a buffer, returning them and the rest."""
@@ -47,8 +81,10 @@ def _split(buffer: str) -> tuple[list[str], str]:
             head, buffer = buffer[:cut], buffer[cut + 1 :]
         else:
             break
-        head = head.strip()
-        if head:
+        head = _strip_inline(head)
+        # A line that was nothing but a list marker leaves nothing behind.
+        # Yielding it would have the assistant say "one" on its own.
+        if head and not _EMPTY_ITEM.match(head):
             sentences.append(head)
     return sentences, buffer
 
@@ -161,14 +197,15 @@ class Brain:
                         tool_calls.append(normalised)
 
                 buffer += message.get("content", "")
+                buffer = _strip_line_markers(buffer)
                 sentences, buffer = _split(buffer)
                 for sentence in sentences:
                     said_something = True
                     spoken.append(sentence)
                     yield sentence
 
-            tail = buffer.strip()
-            if tail:
+            tail = _strip_inline(_strip_line_markers(buffer))
+            if tail and not _EMPTY_ITEM.match(tail):
                 said_something = True
                 spoken.append(tail)
                 yield tail

@@ -104,14 +104,18 @@ def recent_work(days: int = 7, limit: int = 10) -> str:
     for path in sorted(root.iterdir()):
         if not path.is_dir() or not (path / ".git").exists():
             continue
-        last = _git(path, "log", "-1", f"--since={days}.days.ago", "--format=%s (%cr)")
-        if last:
-            found.append((path.name, last))
+        # Names and recency only, not commit subjects. This answer is spoken,
+        # and reading five commit messages aloud is both too long and, on this
+        # machine, often Turkish text going through an English voice. Ask
+        # project_status for the detail on one project instead.
+        when = _git(path, "log", "-1", f"--since={days}.days.ago", "--format=%cr")
+        if when:
+            found.append((path.name, when))
         if len(found) >= limit:
             break
 
     if not found:
         return f"No commits in any project in the last {days} days."
-    return f"Worked on {len(found)} project(s) in the last {days} days: " + "; ".join(
-        f"{name} — {last}" for name, last in found
+    return f"Worked on {len(found)} project(s) in the last {days} days: " + ", ".join(
+        f"{name} ({when})" for name, when in found
     )

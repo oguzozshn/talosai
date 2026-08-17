@@ -63,8 +63,7 @@ class Voice:
         sd.play(audio, self._sample_rate, device=self._device)
         sd.wait()
 
-    @staticmethod
-    def _locate() -> tuple[Path, Path]:
+    def _locate(self) -> tuple[Path, Path]:
         binary = PIPER_DIR / "piper.exe"
         if not binary.exists():
             found = shutil.which("piper")
@@ -79,8 +78,19 @@ class Voice:
             raise VoiceUnavailable(
                 f"No voice in {VOICE_DIR}. Run: run scripts\\fetch_piper.py"
             )
-        turkish = [v for v in voices if v.name.startswith("tr")]
-        return binary, (turkish or voices)[0]
+
+        wanted = (self._config.voice or "").casefold()
+        if wanted:
+            matches = [v for v in voices if wanted in v.stem.casefold()]
+            if matches:
+                return binary, matches[0]
+            # Falling back rather than failing: a missing voice should sound
+            # wrong, not stop the assistant from starting.
+            log.warning(
+                "No voice matching '%s' in %s, using %s",
+                self._config.voice, VOICE_DIR, voices[0].stem,
+            )
+        return binary, voices[0]
 
     @staticmethod
     def _read_sample_rate(voice: Path) -> int:

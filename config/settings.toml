@@ -32,7 +32,9 @@ output_device = ""
 
 [stt]
 model = "large-v3-turbo"
-language = "tr"
+# Whisper is stronger in English than in any other language, and pinning it
+# rather than auto-detecting saves a detection pass on every utterance.
+language = "en"
 # Greedy decoding. Measurably faster, and the accuracy cost on short
 # conversational utterances is small.
 beam_size = 1
@@ -61,6 +63,10 @@ max_rounds = 3
 
 [tts]
 engine = "piper"
+# Which voice file in models/piper to use. A name fragment is enough. Empty
+# picks whatever is there. Fetch more with:
+#   run scripts\fetch_piper.py --language en/en_US --voice en_US-ryan-high
+voice = "lessac"
 # Set these from whichever preset sounded best in scripts/tune_tts.py.
 # length_scale is the one that matters: below 1.0 is faster.
 length_scale = 1.0

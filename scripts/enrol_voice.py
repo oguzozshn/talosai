@@ -31,21 +31,23 @@ from talos.speaker import PROFILE, SpeakerVerifier  # noqa: E402
 
 SAMPLE_RATE = 16_000
 
-# Varied vowels, consonant clusters, and the Turkish-specific letters, so the
-# profile is not built entirely out of one narrow set of sounds.
+# In English, because that is what will actually be spoken to the assistant and
+# a profile should be built from how you really talk. Varied vowels, consonant
+# clusters and sentence rhythms, so it is not learned from one narrow set of
+# sounds.
 PROMPTS = [
-    "Merhaba Talos, bugün nasılsın?",
-    "Yağmurlu havalarda çalışmak daha keyifli oluyor.",
-    "Şu üç proje için öğleden sonra bir plan çıkaralım.",
-    "Bilgisayarımdaki dosyaları düzenlemem gerekiyor.",
-    "Kahvaltıdan sonra ığdır'a doğru yola çıktık.",
-    "Bir, iki, üç, dört, beş, altı, yedi, sekiz, dokuz, on.",
+    "Hello Talos, how are you doing today?",
+    "Working on rainy afternoons is somehow more enjoyable.",
+    "Let's put together a plan for these three projects.",
+    "I need to organise the files on my computer.",
+    "The quick brown fox jumps over the lazy dog.",
+    "One, two, three, four, five, six, seven, eight, nine, ten.",
 ]
 
 VERIFY_PROMPTS = [
-    "Talos, bugün hangi projede kaldım?",
-    "Bana yarınki toplantıları hatırlat.",
-    "Teşekkürler, şimdilik bu kadar.",
+    "Talos, which project was I working on?",
+    "Remind me about tomorrow's meetings.",
+    "Thanks, that's all for now.",
 ]
 
 
