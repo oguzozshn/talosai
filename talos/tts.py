@@ -45,8 +45,11 @@ class VoiceUnavailable(RuntimeError):
 class Voice:
     """Speaks text aloud, one sentence at a time, in order."""
 
-    def __init__(self, config: TtsConfig, *, mute: bool = False) -> None:
+    def __init__(
+        self, config: TtsConfig, *, mute: bool = False, device: int | None = None
+    ) -> None:
         self._config = config
+        self._device = device
         # Muting belongs to the output device, not to the layer: synthesis
         # still runs and is still timed, so a muted run exercises everything
         # except the speaker.
@@ -57,7 +60,7 @@ class Voice:
     def _play(self, audio: np.ndarray) -> None:
         if self._mute:
             return
-        sd.play(audio, self._sample_rate)
+        sd.play(audio, self._sample_rate, device=self._device)
         sd.wait()
 
     @staticmethod

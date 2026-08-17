@@ -21,6 +21,14 @@ hotkey = "f9"
 min_seconds = 0.4
 # Anything below this peak amplitude is silence, and skips the whole chain.
 silence_threshold = 0.01
+# Which microphone and speaker to use. Empty follows the Windows default, so
+# the assistant moves with your headset. Pin one by index or by any part of its
+# name when the default is not the one you want:
+#   input_device = "Realtek"
+#   output_device = 5
+# See the list with:  run main.py --devices
+input_device = ""
+output_device = ""
 
 [stt]
 model = "large-v3-turbo"

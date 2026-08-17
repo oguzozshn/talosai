@@ -34,6 +34,11 @@ class AudioConfig:
     hotkey: str = "f9"
     min_seconds: float = 0.4
     silence_threshold: float = 0.01
+    # Device index, or any part of a device name. Empty follows the Windows
+    # default, which moves when you plug in a headset — usually what you want,
+    # occasionally not.
+    input_device: str = ""
+    output_device: str = ""
 
 
 @dataclass(frozen=True)

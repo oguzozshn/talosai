@@ -14,6 +14,7 @@ import numpy as np
 import sounddevice as sd
 
 from talos.config import AudioConfig
+from talos.devices import resolve
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class Recorder:
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._stream: sd.InputStream | None = None
+        self.device = resolve(config.input_device, kind="input")
 
     @property
     def recording(self) -> bool:
@@ -52,6 +54,7 @@ class Recorder:
             dtype="float32",
             callback=self._callback,
             blocksize=int(self._config.sample_rate * 0.05),
+            device=self.device,
         )
         self._stream.start()
 

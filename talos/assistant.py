@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from talos.config import Config
+from talos.devices import resolve
 from talos.llm import Brain
 from talos.skills import ConfirmFn, Registry
 from talos.skills import load as load_skills
@@ -75,7 +76,11 @@ class Assistant:
 
         self.voice: Voice | None = None
         try:
-            self.voice = Voice(config.tts, mute=mute)
+            self.voice = Voice(
+                config.tts,
+                mute=mute,
+                device=resolve(config.audio.output_device, kind="output"),
+            )
         except VoiceUnavailable as exc:
             # Not fatal. Everything except the speaking works, and the replies
             # are still printed — which is enough to develop against.

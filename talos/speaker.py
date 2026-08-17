@@ -30,10 +30,19 @@ PROFILE = ROOT / "data" / "voice_profile.npz"
 MODEL_DIR = ROOT / "models" / "speechbrain"
 MODEL_SOURCE = "speechbrain/spkrec-ecapa-voxceleb"
 
-# Cosine similarity above this counts as a match. Not a universal constant —
-# it depends on the microphone, the room and the speaker, which is why
-# enrol_voice.py measures the actual distribution and suggests one.
-DEFAULT_THRESHOLD = 0.65
+# Cosine similarity above this counts as a match.
+#
+# The starting value was 0.65, taken from what ECAPA papers report. Measured
+# against a real recording from this microphone, two halves of the *same* five
+# second clip scored 0.645 — the default would have rejected the owner's own
+# voice. Short segments score lower than the literature suggests, and a
+# centroid built from six recordings is steadier than either half, so this is
+# a floor rather than a target.
+#
+# It is still only a starting point. The threshold depends on the microphone,
+# the room and the speaker, which is why enrol_voice.py measures the real
+# distribution and suggests a value from it.
+DEFAULT_THRESHOLD = 0.55
 
 # Below this there is not enough signal for a stable embedding, and the
 # similarity score becomes noise.
@@ -65,11 +74,25 @@ class SpeakerVerifier:
             from speechbrain.inference.speaker import EncoderClassifier
 
             MODEL_DIR.mkdir(parents=True, exist_ok=True)
-            self._encoder = EncoderClassifier.from_hparams(
-                source=MODEL_SOURCE,
-                savedir=str(MODEL_DIR),
-                run_opts={"device": "cpu"},
-            )
+            options = {
+                "source": MODEL_SOURCE,
+                "savedir": str(MODEL_DIR),
+                "run_opts": {"device": "cpu"},
+            }
+
+            # SpeechBrain links the downloaded files out of the Hugging Face
+            # cache by default. On Windows that needs a privilege ordinary
+            # accounts do not have unless Developer Mode is on, and it fails
+            # with WinError 1314. Copying costs 80 MB of disk and always works.
+            try:
+                from speechbrain.utils.fetching import LocalStrategy
+
+                self._encoder = EncoderClassifier.from_hparams(
+                    **options, local_strategy=LocalStrategy.COPY
+                )
+            except (ImportError, TypeError):
+                # Older SpeechBrain has no local_strategy argument.
+                self._encoder = EncoderClassifier.from_hparams(**options)
         return self._encoder
 
     def embed(self, audio: np.ndarray) -> np.ndarray | None:

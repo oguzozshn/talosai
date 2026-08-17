@@ -60,7 +60,11 @@ def start_up(config, mute: bool) -> Assistant:
     print("Warming up — this is the cold-start cost, paid once so the first")
     print("sentence does not pay it.\n")
 
+    from talos.devices import describe, resolve
+
     assistant = Assistant(config, mute=mute, confirm=console_confirm)
+    print(f"  mic       {describe(resolve(config.audio.input_device, kind='input'), 'input')}")
+    print(f"  speaker   {describe(resolve(config.audio.output_device, kind='output'), 'output')}")
     print(f"  speech    {config.stt.model} on {assistant.ears.device}")
     print(f"  reasoning {config.llm.model}")
     if assistant.voice is not None:
@@ -141,8 +145,15 @@ def main() -> int:
     parser.add_argument("--text", action="store_true", help="type instead of speaking")
     parser.add_argument("--say", help="run one exchange with this text, then exit")
     parser.add_argument("--mute", action="store_true", help="run the chain but do not play audio")
+    parser.add_argument("--devices", action="store_true", help="list audio devices and exit")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
+
+    if args.devices:
+        from talos.devices import listing
+
+        print(listing())
+        return 0
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING,
