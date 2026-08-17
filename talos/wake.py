@@ -202,6 +202,8 @@ class WakeListener:
         # While this is in the future, an utterance without the name is still
         # taken as a command.
         awake_until = 0.0
+        # Consecutive half-seconds with no audio delivered at all.
+        starved = 0
         # Silence long enough to mean the sentence ended rather than a pause
         # for breath.
         max_silence = int(self._wake.silence_seconds * rate / chunk)
@@ -218,7 +220,19 @@ class WakeListener:
                 try:
                     block = chunks.get(timeout=0.5)
                 except queue.Empty:
+                    # No audio at all, not even silence. The callback should
+                    # deliver a block every 32 ms, so this means the input
+                    # stream has stopped — which looks exactly like "it stopped
+                    # listening to me" from the outside, and needs to be
+                    # distinguishable from "it heard me and ignored it".
+                    starved += 1
+                    if starved == 4:
+                        log.warning(
+                            "no audio from the microphone for 2s — the input "
+                            "stream may have been dropped"
+                        )
                     continue
+                starved = 0
 
                 with torch.no_grad():
                     speech_probability = self.vad(torch.from_numpy(block), rate).item()
@@ -248,18 +262,26 @@ class WakeListener:
                 # Tell Whisper the name to expect. Without this it produces a
                 # different spelling almost every time, and no amount of
                 # matching afterwards recovers reliably from that.
+                awake = time.monotonic() < awake_until
                 text = self._transcribe(utterance, self._wake.word)
                 if not text:
+                    # Whisper heard speech and produced nothing. Worth seeing
+                    # while the window is open, because from the outside it is
+                    # indistinguishable from not having listened at all.
+                    log.info("heard %.1fs but transcribed nothing (awake=%s)", seconds, awake)
                     continue
 
                 command = strip_wake_word(text)
-                if command is None and time.monotonic() < awake_until:
+                if command is None and awake:
                     # Inside the follow-up window, the whole utterance is the
                     # command. The name was already said.
                     command = text.strip()
                     log.info("follow-up: %s", text)
                 elif command is None:
-                    log.debug("ignored (%.1fs): %s", seconds, text)
+                    # Ignoring speech while the window is open means something
+                    # is wrong, not that the room was noisy — say so loudly.
+                    level = log.info if awake else log.debug
+                    level("ignored (%.1fs, awake=%s): %s", seconds, awake, text)
                     continue
                 else:
                     log.info("woke on: %s", text)
