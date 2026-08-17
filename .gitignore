@@ -8,8 +8,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Local runtime data: voice profile, conversation log, embeddings
-data/
+# Local runtime data: voice profile, conversation log, embeddings.
+# data/* rather than data/ — git does not descend into an ignored directory,
+# so a negation under one never matches and the placeholder stays untracked.
+data/*
 !data/.gitkeep
 
 # Downloaded models and binaries (multi-GB, never commit)
