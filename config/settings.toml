@@ -45,6 +45,12 @@ silence_seconds = 0.8
 min_seconds = 0.5
 # Cap so one long monologue cannot stall the listener.
 max_seconds = 15.0
+# People say the name, pause, and then ask. After a bare "Talos" the next
+# utterance is taken as the command without repeating the name, for this long.
+follow_up_seconds = 8.0
+# Said out loud when the name is heard on its own. Without it there is no way
+# to tell the difference between listening and not having heard.
+acknowledgement = "Yes?"
 
 [stt]
 model = "large-v3-turbo"

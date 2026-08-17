@@ -149,9 +149,12 @@ def run_wake_word(assistant: Assistant, config) -> int:
     try:
         for command, _audio in listener.listen():
             if not command:
-                # The name on its own. Acknowledging is better than silence —
-                # otherwise there is no way to tell it heard you.
-                print(f"  ({config.wake.word}?)\n")
+                # The name on its own. Say something: on screen there is a
+                # line to read, but the person is looking at neither the
+                # screen nor a microphone light, and silence reads as failure.
+                print(f"  {config.wake.acknowledgement}")
+                if assistant.voice is not None:
+                    assistant.voice.say(config.wake.acknowledgement)
                 continue
             print(f"you> {command}")
             turn = assistant.respond_to_text(command)

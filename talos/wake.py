@@ -32,6 +32,7 @@ import logging
 import queue
 import re
 import threading
+import time
 import unicodedata
 from collections.abc import Iterator
 
@@ -179,7 +180,13 @@ class WakeListener:
         self._stop.set()
 
     def listen(self) -> Iterator[tuple[str, np.ndarray]]:
-        """Yield (command text, audio) once per utterance that names Talos."""
+        """Yield (command text, audio) once per utterance addressed to Talos.
+
+        An empty command means the name was said on its own. That opens a
+        short window during which the next utterance is taken as the command
+        without the name — because people say "Talos", pause, and then ask.
+        Requiring one breath is how the assistant feels, not how anyone talks.
+        """
         rate = self._audio.sample_rate
         # Silero v5 wants exactly 512 samples at 16 kHz.
         chunk = 512
@@ -192,6 +199,9 @@ class WakeListener:
 
         speech: list[np.ndarray] = []
         silence_chunks = 0
+        # While this is in the future, an utterance without the name is still
+        # taken as a command.
+        awake_until = 0.0
         # Silence long enough to mean the sentence ended rather than a pause
         # for breath.
         max_silence = int(self._wake.silence_seconds * rate / chunk)
@@ -243,9 +253,31 @@ class WakeListener:
                     continue
 
                 command = strip_wake_word(text)
-                if command is None:
+                if command is None and time.monotonic() < awake_until:
+                    # Inside the follow-up window, the whole utterance is the
+                    # command. The name was already said.
+                    command = text.strip()
+                    log.info("follow-up: %s", text)
+                elif command is None:
                     log.debug("ignored (%.1fs): %s", seconds, text)
                     continue
+                else:
+                    log.info("woke on: %s", text)
 
-                log.info("woke on: %s", text)
-                yield command, utterance
+                if not command:
+                    # The name alone. Stay awake and let the caller say so.
+                    awake_until = time.monotonic() + self._wake.follow_up_seconds
+                    yield "", utterance
+                else:
+                    awake_until = 0.0
+                    yield command, utterance
+
+                # Whatever was captured while the caller was answering is the
+                # assistant's own voice coming back through the microphone, or
+                # the user waiting. Either way it is not the next command.
+                while not chunks.empty():
+                    try:
+                        chunks.get_nowait()
+                    except queue.Empty:
+                        break
+                speech, silence_chunks = [], 0

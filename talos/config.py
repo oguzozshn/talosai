@@ -53,6 +53,12 @@ class WakeConfig:
     # Longer than this is transcribed anyway, so one long monologue cannot
     # stall the listener indefinitely.
     max_seconds: float = 15.0
+    # After the name is said on its own, how long the next utterance counts as
+    # a command without repeating it.
+    follow_up_seconds: float = 8.0
+    # Spoken when the name is heard alone, so there is some sign it is
+    # listening. Silence is indistinguishable from not having heard.
+    acknowledgement: str = "Yes?"
 
 
 @dataclass(frozen=True)
