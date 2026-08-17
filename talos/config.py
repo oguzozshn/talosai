@@ -74,9 +74,16 @@ class WakeConfig:
 @dataclass(frozen=True)
 class SttConfig:
     model: str = "large-v3-turbo"
-    language: str = "tr"
+    language: str = "en"
     beam_size: int = 1
     vad_filter: bool = True
+    # Words Whisper should expect. Technical vocabulary is exactly what it gets
+    # wrong — "serialization" came back as "sterilization" — and telling the
+    # decoder to expect a word works far better than correcting it afterwards.
+    vocabulary: tuple[str, ...] = ()
+    # Add the project folder names too, so repositories are transcribed as
+    # themselves rather than as whatever English word they resemble.
+    include_project_names: bool = True
 
 
 @dataclass(frozen=True)

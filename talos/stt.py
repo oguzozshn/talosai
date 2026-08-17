@@ -8,6 +8,7 @@ GPU libraries are missing rather than refusing to start.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 
@@ -24,9 +25,15 @@ log = logging.getLogger(__name__)
 
 
 class SpeechToText:
-    def __init__(self, config: SttConfig, sample_rate: int = 16_000) -> None:
+    def __init__(
+        self,
+        config: SttConfig,
+        sample_rate: int = 16_000,
+        workspace: Path | None = None,
+    ) -> None:
         self._config = config
         self._sample_rate = sample_rate
+        self._vocabulary = self._build_vocabulary(config, workspace)
         self.device = "cpu"
 
         try:
@@ -37,6 +44,38 @@ class SpeechToText:
         except Exception as exc:  # noqa: BLE001 — any failure means no usable GPU
             log.warning("Whisper falling back to CPU: %s", exc)
             self._model = WhisperModel(config.model, device="cpu", compute_type="int8")
+
+    @staticmethod
+    def _build_vocabulary(config: SttConfig, workspace: Path | None) -> str:
+        """Terms to hint to the decoder, as one space-separated string.
+
+        Capped deliberately. `hotwords` is a hint, and a long one dilutes
+        itself — every extra word makes the ones that matter count for less.
+        """
+        words: list[str] = list(config.vocabulary or ())
+
+        if config.include_project_names and workspace and workspace.is_dir():
+            try:
+                folders = [
+                    p for p in workspace.iterdir()
+                    if p.is_dir() and not p.name.startswith(".")
+                ]
+                # Most recently touched first. The list gets truncated, and
+                # alphabetical order decides that by first letter — which is
+                # how an active project loses its place to one abandoned two
+                # years ago.
+                folders.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                words += [p.name for p in folders]
+            except OSError as exc:
+                log.debug("could not read project names: %s", exc)
+
+        seen: set[str] = set()
+        unique = [w for w in words if w and not (w.casefold() in seen or seen.add(w.casefold()))]
+        return " ".join(unique[:40])
+
+    @property
+    def vocabulary(self) -> str:
+        return self._vocabulary
 
     def warm_up(self) -> None:
         """Pay the kernel-compilation cost now instead of on the first sentence.
@@ -70,8 +109,12 @@ class SpeechToText:
             "beam_size": self._config.beam_size,
             "vad_filter": self._config.vad_filter,
         }
-        if hotwords:
-            options["hotwords"] = hotwords
+        # The caller's hint goes first: when the wake word is being listened
+        # for, it matters more than the vocabulary behind it.
+        combined = " ".join(part for part in (hotwords, self._vocabulary) if part)
+        if combined:
+            options["hotwords"] = combined
+        hotwords = combined or None
 
         try:
             segments, _ = self._model.transcribe(audio, **options)

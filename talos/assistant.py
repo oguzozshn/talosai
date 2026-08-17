@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -67,7 +68,11 @@ class Assistant:
 
         self.memory = Memory() if config.assistant.remember else None
 
-        self.ears = SpeechToText(config.stt, config.audio.sample_rate)
+        self.ears = SpeechToText(
+            config.stt,
+            config.audio.sample_rate,
+            workspace=Path(config.skills.workspace).expanduser(),
+        )
         self.brain = Brain(
             config.llm,
             config.assistant,

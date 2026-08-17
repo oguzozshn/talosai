@@ -74,6 +74,18 @@ model = "large-v3-turbo"
 # Whisper is stronger in English than in any other language, and pinning it
 # rather than auto-detecting saves a detection pass on every utterance.
 language = "en"
+# Words to expect. Whisper is reliable on ordinary English and unreliable on
+# jargon — it heard "serialization" as "sterilization" — and a decoder told to
+# expect a word gets it right far more often than any correction afterwards.
+# Keep the list short: it is a hint, and a long one dilutes itself.
+vocabulary = [
+    "serialization", "deserialization", "Blazor", "ASP.NET", "NuGet",
+    "BACnet", "SQLite", "async", "refactor", "endpoint", "middleware",
+    "repository", "migration", "Whisper", "Ollama", "Piper",
+]
+# Project folder names are added automatically, so your own repositories are
+# transcribed as themselves rather than as whatever English word they resemble.
+include_project_names = true
 # Greedy decoding. Measurably faster, and the accuracy cost on short
 # conversational utterances is small.
 beam_size = 1
