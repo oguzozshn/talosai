@@ -42,6 +42,20 @@ class AudioConfig:
 
 
 @dataclass(frozen=True)
+class WakeConfig:
+    word: str = "Talos"
+    # Silero's speech probability above which a chunk counts as speech.
+    speech_threshold: float = 0.5
+    # Silence that means the sentence ended rather than a breath.
+    silence_seconds: float = 0.8
+    # Shorter than this is a cough, a door, a chair.
+    min_seconds: float = 0.5
+    # Longer than this is transcribed anyway, so one long monologue cannot
+    # stall the listener indefinitely.
+    max_seconds: float = 15.0
+
+
+@dataclass(frozen=True)
 class SttConfig:
     model: str = "large-v3-turbo"
     language: str = "tr"
@@ -87,6 +101,7 @@ class TtsConfig:
 class Config:
     assistant: AssistantConfig = field(default_factory=AssistantConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
+    wake: WakeConfig = field(default_factory=WakeConfig)
     stt: SttConfig = field(default_factory=SttConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
     tts: TtsConfig = field(default_factory=TtsConfig)
@@ -145,6 +160,7 @@ def load() -> Config:
     return Config(
         assistant=_section(data, "assistant", AssistantConfig),
         audio=_section(data, "audio", AudioConfig),
+        wake=_section(data, "wake", WakeConfig),
         stt=_section(data, "stt", SttConfig),
         llm=_section(data, "llm", LlmConfig),
         tts=_section(data, "tts", TtsConfig),

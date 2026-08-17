@@ -140,8 +140,31 @@ def run_push_to_talk(assistant: Assistant, config) -> int:
     return 0
 
 
+def run_wake_word(assistant: Assistant, config) -> int:
+    from talos.wake import WakeListener
+
+    listener = WakeListener(config.audio, config.wake, assistant.ears.transcribe)
+    print(f"Say \"{config.wake.word}\" to wake me. Ctrl+C to quit.\n")
+
+    try:
+        for command, _audio in listener.listen():
+            if not command:
+                # The name on its own. Acknowledging is better than silence —
+                # otherwise there is no way to tell it heard you.
+                print(f"  ({config.wake.word}?)\n")
+                continue
+            print(f"you> {command}")
+            turn = assistant.respond_to_text(command)
+            print(f"  [{turn.timings.summary()}]\n")
+    except KeyboardInterrupt:
+        listener.stop()
+        print()
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--wake", action="store_true", help="listen for the wake word")
     parser.add_argument("--text", action="store_true", help="type instead of speaking")
     parser.add_argument("--say", help="run one exchange with this text, then exit")
     parser.add_argument("--mute", action="store_true", help="run the chain but do not play audio")
@@ -169,6 +192,8 @@ def main() -> int:
         return 0
     if args.text:
         return run_text_mode(assistant)
+    if args.wake:
+        return run_wake_word(assistant, config)
     return run_push_to_talk(assistant, config)
 
 

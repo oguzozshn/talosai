@@ -30,6 +30,22 @@ silence_threshold = 0.01
 input_device = ""
 output_device = ""
 
+[wake]
+# Talos wakes when a transcribed utterance starts with its name. There is no
+# wake-word model to train: voice activity detection finds speech, Whisper
+# reads it, and the name is matched as a word rather than as a sound.
+word = "Talos"
+# Silero's speech probability above which a chunk counts as speech. Raise it in
+# a noisy room, lower it if quiet speech is being missed.
+speech_threshold = 0.5
+# Silence that means the sentence ended rather than a pause for breath. Too
+# short cuts you off mid-thought; too long makes every reply feel late.
+silence_seconds = 0.8
+# Shorter than this is a cough, a door, a chair.
+min_seconds = 0.5
+# Cap so one long monologue cannot stall the listener.
+max_seconds = 15.0
+
 [stt]
 model = "large-v3-turbo"
 # Whisper is stronger in English than in any other language, and pinning it
