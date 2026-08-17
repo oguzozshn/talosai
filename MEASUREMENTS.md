@@ -51,7 +51,18 @@ every question is not being helpful — each call costs a full extra round trip.
 | Model | Correct | Wrong | Missed | Unwanted | Bad args | Median |
 |---|---|---|---|---|---|---|
 | `qwen3:8b` | **12/12** | 0 | 0 | 0 | 0 | 2.14 s |
+| `llama3.1:8b` | 9/12 | 0 | 0 | 3 | 0 | 2.26 s |
 | `gemma3:4b` | — | — | — | — | — | — |
+
+Llama's recall is perfect — seven of seven on the cases that want a skill. It
+loses entirely on restraint: it tried to take a note when told "thanks, that's
+all for now", took another when asked how it was doing, and went to read a file
+to explain what a race condition is. Three unnecessary round trips in twelve
+questions, which in conversation is an assistant that pauses for nine seconds
+to look something up before telling you it is fine, thanks.
+
+That is the half of tool use that goes unmeasured, and it is why five of the
+twelve cases expect no call at all.
 
 **Gemma 3 cannot call tools at all.** Every request returns
 `does not support tools (status code: 400)`. It was pulled as the tool-calling
