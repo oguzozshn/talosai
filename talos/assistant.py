@@ -71,7 +71,7 @@ class Assistant:
         self.ears = SpeechToText(
             config.stt,
             config.audio.sample_rate,
-            workspace=Path(config.skills.workspace).expanduser(),
+            workspaces=[Path(w).expanduser() for w in config.skills.workspaces],
         )
         self.brain = Brain(
             config.llm,

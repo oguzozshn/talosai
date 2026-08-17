@@ -29,11 +29,11 @@ class SpeechToText:
         self,
         config: SttConfig,
         sample_rate: int = 16_000,
-        workspace: Path | None = None,
+        workspaces: list[Path] | None = None,
     ) -> None:
         self._config = config
         self._sample_rate = sample_rate
-        self._vocabulary = self._build_vocabulary(config, workspace)
+        self._vocabulary = self._build_vocabulary(config, workspaces or [])
         self.device = "cpu"
 
         try:
@@ -46,7 +46,7 @@ class SpeechToText:
             self._model = WhisperModel(config.model, device="cpu", compute_type="int8")
 
     @staticmethod
-    def _build_vocabulary(config: SttConfig, workspace: Path | None) -> str:
+    def _build_vocabulary(config: SttConfig, workspaces: list[Path]) -> str:
         """Terms to hint to the decoder, as one space-separated string.
 
         Capped deliberately. `hotwords` is a hint, and a long one dilutes
@@ -54,20 +54,32 @@ class SpeechToText:
         """
         words: list[str] = list(config.vocabulary or ())
 
-        if config.include_project_names and workspace and workspace.is_dir():
+        if config.include_project_names:
+            folders: list[Path] = []
+            for workspace in workspaces:
+                if not workspace.is_dir():
+                    continue
+                try:
+                    # A root that is itself a repository is one project, not a
+                    # folder of them.
+                    if (workspace / ".git").exists():
+                        folders.append(workspace)
+                    else:
+                        folders += [
+                            p for p in workspace.iterdir()
+                            if p.is_dir() and not p.name.startswith(".")
+                        ]
+                except OSError as exc:
+                    log.debug("could not read project names: %s", exc)
+
+            # Most recently touched first. The list gets truncated, and
+            # alphabetical order decides that by first letter — which is how an
+            # active project loses its place to one abandoned two years ago.
             try:
-                folders = [
-                    p for p in workspace.iterdir()
-                    if p.is_dir() and not p.name.startswith(".")
-                ]
-                # Most recently touched first. The list gets truncated, and
-                # alphabetical order decides that by first letter — which is
-                # how an active project loses its place to one abandoned two
-                # years ago.
                 folders.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-                words += [p.name for p in folders]
-            except OSError as exc:
-                log.debug("could not read project names: %s", exc)
+            except OSError:
+                pass
+            words += [p.name for p in folders]
 
         seen: set[str] = set()
         unique = [w for w in words if w and not (w.casefold() in seen or seen.add(w.casefold()))]

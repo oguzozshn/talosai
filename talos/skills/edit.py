@@ -27,7 +27,7 @@ import logging
 import subprocess
 from pathlib import Path
 
-from talos.skills._workspace import OutsideWorkspace, describe, resolve
+from talos.skills._workspace import OutsideWorkspace, SecretFile, describe, resolve
 from talos.skills.base import Permission, skill
 
 log = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def _check(path: str, *, must_exist: bool) -> tuple[Path | None, str | None]:
     """Resolve and vet a path. Returns (path, refusal)."""
     try:
         target = resolve(path)
-    except OutsideWorkspace as exc:
+    except (OutsideWorkspace, SecretFile) as exc:
         return None, str(exc)
 
     if any(part in FORBIDDEN_PARTS for part in target.parts):

@@ -5,7 +5,13 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from talos.skills._workspace import OutsideWorkspace, WORKSPACE, describe, resolve
+from talos.skills._workspace import (
+    WORKSPACES,
+    OutsideWorkspace,
+    SecretFile,
+    describe,
+    resolve,
+)
 from talos.skills.base import Permission, skill
 
 
@@ -31,16 +37,19 @@ def list_projects(limit: int = 25) -> str:
     Args:
         limit: How many to list at most
     """
-    try:
-        root = resolve()
-    except OutsideWorkspace as exc:
-        return str(exc)
+    names: list[str] = []
+    for root in WORKSPACES:
+        # A root that is itself a project — one sits on the desktop rather
+        # than inside a folder of projects — counts as one entry, not as a
+        # list of its subdirectories.
+        if (root / ".git").exists():
+            names.append(root.name)
+            continue
+        names += [p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")]
 
-    names = sorted(
-        p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")
-    )
+    names = sorted(set(names))
     if not names:
-        return "The projects folder is empty."
+        return "I can't see any projects."
 
     shown = names[:limit]
     text = f"{len(names)} projects: " + ", ".join(shown)
@@ -98,11 +107,16 @@ def recent_work(days: int = 7, limit: int = 10) -> str:
         days: How many days back to look
         limit: How many projects to report at most
     """
-    root = WORKSPACE
-    found: list[tuple[str, str]] = []
+    candidates: list[Path] = []
+    for root in WORKSPACES:
+        if (root / ".git").exists():
+            candidates.append(root)
+        else:
+            candidates += [p for p in root.iterdir() if p.is_dir()]
 
-    for path in sorted(root.iterdir()):
-        if not path.is_dir() or not (path / ".git").exists():
+    found: list[tuple[str, str]] = []
+    for path in sorted(candidates):
+        if not (path / ".git").exists():
             continue
         # Names and recency only, not commit subjects. This answer is spoken,
         # and reading five commit messages aloud is both too long and, on this

@@ -111,8 +111,9 @@ class LlmConfig:
 @dataclass(frozen=True)
 class SkillsConfig:
     enabled: bool = True
-    # The only directory skills may read. Everything outside is refused.
-    workspace: str = "~"
+    # The directories skills may read. Everything outside is refused. A list
+    # because projects do not all live in one folder.
+    workspaces: tuple[str, ...] = ()
     # How many times the model may call a skill and be handed the result
     # before it has to answer. Without a ceiling, a model that misreads a
     # result can call the same skill forever.

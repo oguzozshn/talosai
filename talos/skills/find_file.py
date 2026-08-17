@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from talos.skills._workspace import OutsideWorkspace, describe, resolve
+from talos.skills._workspace import (
+    WORKSPACES,
+    OutsideWorkspace,
+    SecretFile,
+    describe,
+    resolve,
+)
 from talos.skills.base import Permission, skill
 
 # Directories that hold thousands of files nobody is ever looking for. Walking
@@ -23,25 +29,23 @@ def find_file(pattern: str, limit: int = 10) -> str:
         pattern: Name or glob to look for, such as README* or *.csproj
         limit: How many results to return at most
     """
-    try:
-        root = resolve()
-    except OutsideWorkspace as exc:
-        return str(exc)
-
     if "*" not in pattern and "?" not in pattern:
         pattern = f"*{pattern}*"
 
     matches = []
-    for path in root.rglob(pattern):
-        if any(part in IGNORED for part in path.parts):
-            continue
-        if path.is_file():
-            matches.append(path)
-            if len(matches) >= limit:
-                break
+    for root in WORKSPACES:
+        for path in root.rglob(pattern):
+            if any(part in IGNORED for part in path.parts):
+                continue
+            if path.is_file():
+                matches.append(path)
+                if len(matches) >= limit:
+                    break
+        if len(matches) >= limit:
+            break
 
     if not matches:
-        return f"No file matching '{pattern}' in the projects folder."
+        return f"No file matching '{pattern}' anywhere I can look."
 
     lines = [f"{len(matches)} match(es) for '{pattern}':"]
     lines += [f"  {describe(p)}" for p in matches]
@@ -57,7 +61,7 @@ def read_file(path: str) -> str:
     """
     try:
         target = resolve(path)
-    except OutsideWorkspace as exc:
+    except (OutsideWorkspace, SecretFile) as exc:
         return str(exc)
 
     if not target.is_file():

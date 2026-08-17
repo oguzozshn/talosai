@@ -132,9 +132,17 @@ acknowledge_skills = true
 
 [skills]
 enabled = true
-# The only directory skills may read. Anything outside is refused, including
-# via symlinks or "..". Change this and the assistant's reach changes with it.
-workspace = "C:/Users/oguzo/OneDrive/Desktop/Mhendislik/Projects"
+# The directories skills may read. Anything outside is refused, including via
+# symlinks or "..". This list is the assistant's entire reach — widen it
+# carefully, and never to a whole drive or a home directory.
+#
+# Files that look like credentials are refused even inside these roots: giving
+# an assistant a folder is not giving it the API keys that happen to sit in
+# that folder, and this one reads its answers out loud.
+workspaces = [
+    "C:/Users/oguzo/OneDrive/Desktop/Mhendislik/Projects",
+    "C:/Users/oguzo/OneDrive/Desktop/personnal_assistant",
+]
 # How many times the model may call a skill and be handed the result before it
 # has to answer. Without a ceiling, a model that misreads a result will call
 # the same skill forever.
