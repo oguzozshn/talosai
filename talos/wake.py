@@ -165,6 +165,10 @@ class WakeListener:
         self._device = resolve(audio.input_device, kind="input")
         self._vad = None
         self._stop = threading.Event()
+        # Set while listen() is running, so a confirmation can be collected
+        # from the same stream. Opening a second input stream on the same
+        # device is how you find out the driver only allows one.
+        self._chunks: queue.Queue | None = None
 
     @property
     def vad(self):
@@ -179,6 +183,61 @@ class WakeListener:
     def stop(self) -> None:
         self._stop.set()
 
+    def ask(self, timeout: float = 8.0, hint: str = "yes no") -> str:
+        """Capture and transcribe one short reply, for a confirmation.
+
+        Reads from the stream listen() already has open rather than opening
+        another. It is called from inside a turn — the generator is paused at
+        its yield, the callback is still filling the queue — so the audio is
+        there for the taking.
+
+        Returns "" if nothing was said before the timeout, which the caller
+        must treat as "no": silence is not consent.
+        """
+        chunks = self._chunks
+        if chunks is None:
+            return ""
+
+        import torch
+
+        rate = self._audio.sample_rate
+        block_size = 512
+        max_silence = int(0.6 * rate / block_size)
+
+        # Drop whatever the question itself put into the microphone.
+        settle_until = time.monotonic() + self._wake.settle_seconds
+        while time.monotonic() < settle_until:
+            try:
+                chunks.get(timeout=0.05)
+            except queue.Empty:
+                pass
+
+        speech: list[np.ndarray] = []
+        silence = 0
+        deadline = time.monotonic() + timeout
+
+        while time.monotonic() < deadline:
+            try:
+                block = chunks.get(timeout=0.3)
+            except queue.Empty:
+                continue
+
+            with torch.no_grad():
+                probability = self.vad(torch.from_numpy(block), rate).item()
+
+            if probability >= self._wake.speech_threshold:
+                speech.append(block)
+                silence = 0
+            elif speech:
+                speech.append(block)
+                silence += 1
+                if silence >= max_silence:
+                    break
+
+        if not speech:
+            return ""
+        return self._transcribe(np.concatenate(speech), hint)
+
     def listen(self) -> Iterator[tuple[str, np.ndarray]]:
         """Yield (command text, audio) once per utterance addressed to Talos.
 
@@ -191,6 +250,7 @@ class WakeListener:
         # Silero v5 wants exactly 512 samples at 16 kHz.
         chunk = 512
         chunks: queue.Queue = queue.Queue()
+        self._chunks = chunks
 
         def callback(indata, _frames, _time, status):
             if status:

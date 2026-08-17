@@ -72,15 +72,23 @@ def show_memory(erase: bool = False) -> int:
     return 0
 
 
-def console_confirm(skill_name: str, permission) -> bool:
-    """Ask at the terminal before a skill that changes something runs.
+def describe_action(skill_name: str, arguments: dict) -> str:
+    """What is about to happen, in one line, for a confirmation prompt."""
+    if not arguments:
+        return skill_name
+    parts = []
+    for key, value in arguments.items():
+        text = str(value)
+        if len(text) > 60:
+            text = text[:57] + "..."
+        parts.append(f"{key}={text!r}")
+    return f"{skill_name}  {'  '.join(parts)}"
 
-    A stopgap. The point of the permission tiers is that the answer comes by
-    voice, and for the OWNER tier that the voice is verified — neither of which
-    exists until phase 2. Asking at the keyboard is honest in the meantime:
-    it does block the action, it just blocks it in the wrong place.
-    """
-    print(f"\n  '{skill_name}' needs permission ({permission.value}).")
+
+def console_confirm(skill_name: str, permission, arguments: dict) -> bool:
+    """Ask at the terminal before a skill that changes something runs."""
+    print(f"\n  Permission needed ({permission.value}):")
+    print(f"    {describe_action(skill_name, arguments)}")
     try:
         answer = input("  Allow? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -174,10 +182,51 @@ def run_push_to_talk(assistant: Assistant, config) -> int:
     return 0
 
 
+_AGREEMENT = {"yes", "yeah", "yep", "sure", "ok", "okay", "go", "do", "please", "confirm", "evet"}
+_REFUSAL = {"no", "nope", "don't", "dont", "stop", "cancel", "wait", "hayir", "hayır"}
+
+
+def spoken_confirm(assistant: Assistant, listener, skill_name: str, permission, arguments: dict) -> bool:
+    """Ask out loud, and listen for the answer.
+
+    A confirmation that can only be given at the keyboard is not a
+    confirmation for someone standing across the room, which is the whole
+    situation this assistant exists for.
+    """
+    question = f"I'm about to run {describe_action(skill_name, arguments)}. Should I?"
+    print(f"\n  Permission needed ({permission.value}):")
+    print(f"    {describe_action(skill_name, arguments)}")
+
+    if assistant.voice is not None:
+        assistant.voice.say(question)
+
+    answer = listener.ask()
+    print(f"    you said: {answer or '(nothing)'}")
+
+    words = {w.strip(".,!?").lower() for w in answer.split()}
+    if words & _REFUSAL:
+        return False
+    if words & _AGREEMENT:
+        return True
+
+    # Anything else, including silence, is a no. An assistant that reads
+    # ambiguity as consent is one you cannot leave running.
+    if assistant.voice is not None:
+        assistant.voice.say("I'll leave it.")
+    return False
+
+
 def run_wake_word(assistant: Assistant, config) -> int:
     from talos.wake import WakeListener
 
     listener = WakeListener(config.audio, config.wake, assistant.ears.transcribe)
+    # Rebound now that the listener exists: confirmations are spoken and heard
+    # through the same stream the wake word uses.
+    assistant.set_confirm(
+        lambda name, permission, arguments: spoken_confirm(
+            assistant, listener, name, permission, arguments
+        )
+    )
     print(f"Say \"{config.wake.word}\" to wake me. Ctrl+C to quit.\n")
 
     try:

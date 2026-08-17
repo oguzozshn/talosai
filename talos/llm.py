@@ -218,6 +218,9 @@ class Brain:
         name = tool_calls[0][0]
         return self._ACKNOWLEDGEMENTS.get(name, "One moment.")
 
+    def set_confirm(self, confirm: ConfirmFn) -> None:
+        self._confirm = confirm
+
     def _tools(self) -> list[dict] | None:
         if self._registry is None or not len(self._registry):
             return None

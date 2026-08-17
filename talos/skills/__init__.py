@@ -25,7 +25,10 @@ __all__ = ["Permission", "Registry", "Skill", "skill"]
 
 log = logging.getLogger(__name__)
 
-ConfirmFn = Callable[[str, Permission], bool]
+# Given the skill name, its tier, and the arguments it is about to run with.
+# The arguments are the point: "run edit_file?" is not a question anyone can
+# answer, and approving it is not consent to what it was going to do.
+ConfirmFn = Callable[[str, Permission, dict], bool]
 
 
 def a_or_an(word: str) -> str:
@@ -97,7 +100,7 @@ class Registry:
                     f"'{name}' changes something and needs confirmation, but there "
                     f"is no way to ask right now. It was not run."
                 )
-            if not confirm(name, definition.permission):
+            if not confirm(name, definition.permission, arguments):
                 return f"Permission refused. '{name}' was not run."
 
         try:

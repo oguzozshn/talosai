@@ -95,6 +95,14 @@ class Assistant:
             # are still printed — which is enough to develop against.
             log.warning("%s", exc)
 
+    def set_confirm(self, confirm: ConfirmFn) -> None:
+        """Change how permission is asked for.
+
+        The wake-word loop swaps in a spoken confirmation once its listener
+        exists, since that cannot be built before the assistant it belongs to.
+        """
+        self.brain.set_confirm(confirm)
+
     def warm_up(self) -> None:
         """Pay every cold-start cost before the first utterance.
 
