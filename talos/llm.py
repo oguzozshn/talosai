@@ -149,8 +149,28 @@ class Brain:
             return self._character
         return f"{self._character}\n\n## Who you are talking to\n\n{profile}"
 
+    @staticmethod
+    def _now() -> str:
+        """The date and time, for a model that has neither.
+
+        Sent as its own message after the character rather than inside it, so
+        the long stable prefix — character, profile, tool schemas — stays
+        identical between requests and stays prefilled. Rounded to the minute
+        for the same reason: a timestamp that changes every second would
+        invalidate the cache on every request.
+        """
+        now = datetime.now()
+        return (
+            f"Right now it is {now:%A %d %B %Y, %H:%M}. "
+            f"Work out dates from this rather than guessing, and say "
+            f"\"today\" or \"tomorrow\" when that is what you mean."
+        )
+
     def _messages(self, prompt: str) -> list[dict[str, str]]:
-        messages = [{"role": "system", "content": self._system_prompt()}]
+        messages = [
+            {"role": "system", "content": self._system_prompt()},
+            {"role": "system", "content": self._now()},
+        ]
         if self._summary:
             messages.append(
                 {

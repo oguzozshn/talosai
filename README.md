@@ -8,12 +8,18 @@ Named after the bronze automaton of Greek myth that patrolled the shores of Cret
 
 These are hard requirements, not preferences:
 
-1. **Everything runs locally**, with one named exception. Speech, reasoning,
+1. **Everything runs locally**, with named exceptions. Speech, reasoning,
    memory and voice have no network path at all — no API keys, no accounts,
-   nothing to leak. The exception is the Todoist skill, added deliberately and
-   listed here so the claim stays true: it sends task text to Todoist's servers
-   and stops working when the internet does. Delete `talos/skills/todoist.py`
-   and the exception goes with it.
+   nothing to leak. Two skills do reach out, listed here so the claim stays
+   honest, and each can be deleted on its own:
+
+   | Skill | What leaves the machine |
+   |---|---|
+   | `talos/skills/todoist.py` | Task text, to Todoist. Needs a token. |
+   | `talos/skills/search.py` | Your search query, to DuckDuckGo. No account. |
+
+   Delete the file and the exception goes with it. Nothing else in Talos
+   depends on either.
 2. **Fits in 8 GB of VRAM.** Speech recognition and the language model must coexist on a single laptop GPU.
 3. **Voice-gated.** The assistant recognises its owner's voice and refuses destructive actions from anyone else.
 4. **Skills are files.** Adding a capability means dropping a Python file into `talos/skills/` — never editing the core.
