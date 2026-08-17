@@ -140,6 +140,13 @@ workspace = "C:/Users/oguzo/OneDrive/Desktop/Mhendislik/Projects"
 # the same skill forever.
 max_rounds = 3
 
+[todoist]
+# Deliberately empty, and it should stay that way. Put the token in
+# config/local.toml, which is git-ignored, or in the TODOIST_API_TOKEN
+# environment variable — this file is committed, and a token in it would be
+# pushed to GitHub the next time anyone runs git add.
+token = ""
+
 [tts]
 engine = "piper"
 # Which voice file in models/piper to use. A name fragment is enough. Empty

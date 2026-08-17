@@ -120,6 +120,14 @@ class SkillsConfig:
 
 
 @dataclass(frozen=True)
+class TodoistConfig:
+    # Leave empty here. The token belongs in config/local.toml, which is
+    # git-ignored, or in TODOIST_API_TOKEN. Nothing writes it — Talos only
+    # reads whichever you filled in.
+    token: str = ""
+
+
+@dataclass(frozen=True)
 class TtsConfig:
     engine: str = "piper"
     # Name fragment of the voice file to use. Empty takes whatever is present.
@@ -139,6 +147,7 @@ class Config:
     llm: LlmConfig = field(default_factory=LlmConfig)
     tts: TtsConfig = field(default_factory=TtsConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
+    todoist: TodoistConfig = field(default_factory=TodoistConfig)
 
     @property
     def character(self) -> str:
@@ -198,4 +207,5 @@ def load() -> Config:
         llm=_section(data, "llm", LlmConfig),
         tts=_section(data, "tts", TtsConfig),
         skills=_section(data, "skills", SkillsConfig),
+        todoist=_section(data, "todoist", TodoistConfig),
     )
