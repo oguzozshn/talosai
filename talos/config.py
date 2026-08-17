@@ -26,6 +26,9 @@ class AssistantConfig:
     name: str = "Talos"
     character_file: str = "config/character.md"
     history_turns: int = 6
+    # Whether exchanges are written to data/memory.db and can be searched
+    # later. Turning this off makes every conversation end when it ends.
+    remember: bool = True
 
 
 @dataclass(frozen=True)

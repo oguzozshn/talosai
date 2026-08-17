@@ -36,6 +36,12 @@ Ollama 0.32.14, 4096 context, thinking off, `keep_alive` pinned. Prompt:
 Cold load — model on disk, not in VRAM — costs 62 s for Qwen and 25 s for
 Gemma. That is the cost `keep_alive` exists to avoid.
 
+### Memory costs 323 MB and one cold load
+
+`nomic-embed-text` sits alongside the language model rather than displacing it:
+5.6 GB and 323 MB, both reported at 100% GPU. Its first use cost 18 s while it
+loaded; the turn after was 3.15 s.
+
 ### Only one of them can be resident
 
 5.6 + 2.9 GB does not fit in 8 GB. Loading Gemma evicted Qwen, and switching

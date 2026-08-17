@@ -17,6 +17,7 @@ import numpy as np
 from talos.config import Config
 from talos.devices import resolve
 from talos.llm import Brain
+from talos.memory import Memory
 from talos.skills import ConfirmFn, Registry
 from talos.skills import load as load_skills
 from talos.stt import SpeechToText
@@ -64,6 +65,8 @@ class Assistant:
         # decide on the user's behalf.
         self.skills: Registry | None = load_skills() if config.skills.enabled else None
 
+        self.memory = Memory() if config.assistant.remember else None
+
         self.ears = SpeechToText(config.stt, config.audio.sample_rate)
         self.brain = Brain(
             config.llm,
@@ -72,6 +75,7 @@ class Assistant:
             registry=self.skills,
             confirm=confirm,
             max_rounds=config.skills.max_rounds,
+            memory=self.memory,
         )
 
         self.voice: Voice | None = None

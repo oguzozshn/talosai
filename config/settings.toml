@@ -10,6 +10,9 @@ character_file = "config/character.md"
 # Turns of conversation kept in context. Each turn is a user message plus a
 # reply; the character definition is always present on top of these.
 history_turns = 6
+# Write every exchange to data/memory.db so it can be recalled later. The file
+# is git-ignored and never leaves the machine; delete it to forget everything.
+remember = true
 
 [audio]
 # 16 kHz because Whisper resamples to it anyway. Recording here avoids a

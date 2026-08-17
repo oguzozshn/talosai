@@ -12,10 +12,12 @@ import json
 import logging
 import re
 from collections.abc import Iterator
+from datetime import datetime
 
 import ollama
 
 from talos.config import AssistantConfig, LlmConfig
+from talos.memory import Exchange, Memory, embed, load_profile
 from talos.skills import ConfirmFn, Registry
 
 log = logging.getLogger(__name__)
@@ -122,6 +124,7 @@ class Brain:
         registry: Registry | None = None,
         confirm: ConfirmFn | None = None,
         max_rounds: int = 3,
+        memory: Memory | None = None,
     ) -> None:
         self._config = config
         self._assistant = assistant
@@ -129,11 +132,19 @@ class Brain:
         self._registry = registry
         self._confirm = confirm
         self._max_rounds = max_rounds
+        self._memory = memory
         self._history: list[dict[str, str]] = []
+
+    def _system_prompt(self) -> str:
+        """Character plus profile, read fresh so edits apply without a restart."""
+        profile = load_profile()
+        if not profile:
+            return self._character
+        return f"{self._character}\n\n## Who you are talking to\n\n{profile}"
 
     def _messages(self, prompt: str) -> list[dict[str, str]]:
         return [
-            {"role": "system", "content": self._character},
+            {"role": "system", "content": self._system_prompt()},
             *self._history,
             {"role": "user", "content": prompt},
         ]
@@ -235,6 +246,16 @@ class Brain:
         self._remember(prompt, " ".join(spoken))
 
     def _remember(self, prompt: str, answer: str) -> None:
+        if self._memory is not None and answer.strip():
+            # Runs after the last sentence has been handed over, so the
+            # embedding call happens while the reply is still being spoken
+            # rather than before it starts.
+            try:
+                exchange = Exchange(datetime.now(), prompt, answer)
+                self._memory.record(prompt, answer, embed(exchange.as_text()))
+            except Exception:  # noqa: BLE001 — never lose a turn over bookkeeping
+                log.exception("could not record exchange")
+
         self._history.append({"role": "user", "content": prompt})
         self._history.append({"role": "assistant", "content": answer})
         # Two entries per turn. Trimming from the front keeps the most recent
