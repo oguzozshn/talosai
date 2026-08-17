@@ -240,10 +240,10 @@ This is why long procedures get written to a note instead of spoken.
 Ordered by usefulness per hour of work, for how this machine actually gets
 used.
 
-**Read the weekly plan.** `personnal_assistant` already holds `siradaki.md`
-and `data/W34.json`. A skill that answers "what am I meant to be doing this
-week" would use what is already written rather than asking you to repeat it.
-The reach is configured; only the skill is missing.
+~~**Read the weekly plan.**~~ Built — `talos/skills/planner.py`, reading the
+`data/W*.json` the personal assistant project already writes. Read-only on
+purpose: asking what you are meant to be doing should not be able to change
+the answer.
 
 **Timers and reminders.** "Start a twenty-five minute timer." Needs a
 background thread and a way to interrupt with speech — the plumbing for
