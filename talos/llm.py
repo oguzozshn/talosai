@@ -166,6 +166,33 @@ class Brain:
         except Exception as exc:  # noqa: BLE001 — warm-up is best effort
             log.warning("Model warm-up failed: %s", exc)
 
+    # Roughly what each skill is doing, so the filler is about the right thing
+    # rather than a generic noise. Matched on a prefix of the skill name.
+    _ACKNOWLEDGEMENTS = {
+        "recall": "Let me check what we said.",
+        "last_conversations": "Let me check what we said.",
+        "read_notes": "Let me look at your notes.",
+        "take_note": "Writing that down.",
+        "find_file": "Let me look for that.",
+        "read_file": "Let me read that.",
+        "project_status": "Let me check that project.",
+        "list_projects": "Let me look.",
+        "recent_work": "Let me check your recent work.",
+    }
+
+    def _acknowledge(self, tool_calls: list[tuple[str, dict]]) -> str:
+        """Something to say while a skill runs.
+
+        A skill call costs a full extra round trip — measured at nine seconds
+        against one for a plain answer. That gap will not optimise away, and
+        nine seconds of silence sounds like the assistant has stopped working
+        rather than like it is working.
+        """
+        if not self._config.acknowledge_skills or not tool_calls:
+            return ""
+        name = tool_calls[0][0]
+        return self._ACKNOWLEDGEMENTS.get(name, "One moment.")
+
     def _tools(self) -> list[dict] | None:
         if self._registry is None or not len(self._registry):
             return None
@@ -222,11 +249,20 @@ class Brain:
                 spoken.append(tail)
                 yield tail
 
-            # Models emit either tool calls or an answer, not both. If it has
-            # already started answering, running the tools now would mean
-            # speaking twice about the same question.
-            if not tool_calls or said_something:
+            if not tool_calls:
                 break
+
+            # Speaking and then calling a tool used to end the turn here, on
+            # the reasoning that a model emits one or the other. That was true
+            # until the character definition started asking it to say what it
+            # is about to do — at which point obeying that instruction
+            # silently cancelled the tool call it was announcing.
+            if not said_something:
+                filler = self._acknowledge(tool_calls)
+                if filler:
+                    # Spoken but not remembered: it is a noise to cover a gap,
+                    # not part of the answer.
+                    yield filler
 
             messages.append(
                 {

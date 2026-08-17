@@ -96,6 +96,9 @@ class LlmConfig:
     # Runaway guard only. Length is the character definition's job; a cap tight
     # enough to enforce brevity truncates real answers mid-sentence.
     max_tokens: int = 400
+    # Say something before a skill runs. A skill call costs a full extra round
+    # trip — about nine seconds — and silence that long sounds like a crash.
+    acknowledge_skills: bool = True
 
 
 @dataclass(frozen=True)
