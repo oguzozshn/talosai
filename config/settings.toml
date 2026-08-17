@@ -63,6 +63,11 @@ continue_seconds = 10.0
 # Said out loud when the name is heard on its own. Without it there is no way
 # to tell the difference between listening and not having heard.
 acknowledgement = "Yes?"
+# Microphone input is discarded for this long after Talos stops speaking. Its
+# own voice is still travelling to the microphone when playback ends, and
+# arrives as a short utterance that transcribes to nothing. Raise it if you use
+# loud speakers close to the microphone.
+settle_seconds = 0.25
 
 [stt]
 model = "large-v3-turbo"

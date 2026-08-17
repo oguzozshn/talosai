@@ -204,6 +204,8 @@ class WakeListener:
         awake_until = 0.0
         # Consecutive half-seconds with no audio delivered at all.
         starved = 0
+        # When the current utterance began. Zero means none is in progress.
+        speech_started = 0.0
         # Silence long enough to mean the sentence ended rather than a pause
         # for breath.
         max_silence = int(self._wake.silence_seconds * rate / chunk)
@@ -238,6 +240,8 @@ class WakeListener:
                     speech_probability = self.vad(torch.from_numpy(block), rate).item()
 
                 if speech_probability >= self._wake.speech_threshold:
+                    if not speech:
+                        speech_started = time.monotonic()
                     speech.append(block)
                     silence_chunks = 0
                 elif speech:
@@ -262,7 +266,12 @@ class WakeListener:
                 # Tell Whisper the name to expect. Without this it produces a
                 # different spelling almost every time, and no amount of
                 # matching afterwards recovers reliably from that.
-                awake = time.monotonic() < awake_until
+                # Measured from when speaking *started*, not from now. Checking
+                # at the end of the utterance means a long sentence expires the
+                # window it began inside — an eight second window rejects an
+                # eight second reply that started immediately, which is exactly
+                # the sentence someone gives when asked to remember something.
+                awake = speech_started < awake_until
                 text = self._transcribe(utterance, self._wake.word)
                 if not text:
                     # Whisper heard speech and produced nothing. Worth seeing
@@ -294,12 +303,28 @@ class WakeListener:
                 # Whatever was captured while the caller was answering is the
                 # assistant's own voice coming back through the microphone, or
                 # the user waiting. Either way it is not the next command.
+                #
+                # Draining once is not enough: the last of the reply is still
+                # travelling from the speaker to the microphone when the queue
+                # first reads as empty, and arrives a moment later as a short
+                # utterance that transcribes to nothing. Keep draining until
+                # the queue has stayed empty for a beat.
+                # A fixed span, not "until the queue stays empty": the callback
+                # delivers a block every 32 ms, so a loop that waits for
+                # emptiness never ends.
+                settle_until = time.monotonic() + self._wake.settle_seconds
+                while time.monotonic() < settle_until:
+                    try:
+                        chunks.get(timeout=0.05)
+                    except queue.Empty:
+                        pass
                 while not chunks.empty():
                     try:
                         chunks.get_nowait()
                     except queue.Empty:
                         break
-                speech, silence_chunks = [], 0
+
+                speech, silence_chunks, speech_started = [], 0, 0.0
 
                 # Start the window now rather than before yielding: the reply
                 # takes seconds to speak, and a window opened beforehand is

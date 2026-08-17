@@ -66,6 +66,9 @@ class WakeConfig:
     # Spoken when the name is heard alone, so there is some sign it is
     # listening. Silence is indistinguishable from not having heard.
     acknowledgement: str = "Yes?"
+    # How long to keep discarding microphone input after Talos finishes
+    # speaking, so the tail of its own voice is not heard as a command.
+    settle_seconds: float = 0.25
 
 
 @dataclass(frozen=True)
