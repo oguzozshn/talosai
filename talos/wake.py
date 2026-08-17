@@ -264,13 +264,10 @@ class WakeListener:
                 else:
                     log.info("woke on: %s", text)
 
-                if not command:
-                    # The name alone. Stay awake and let the caller say so.
-                    awake_until = time.monotonic() + self._wake.follow_up_seconds
-                    yield "", utterance
-                else:
-                    awake_until = 0.0
-                    yield command, utterance
+                # An empty command is the name on its own; the caller
+                # acknowledges it. Either way, control does not come back here
+                # until the answer has finished being spoken.
+                yield command, utterance
 
                 # Whatever was captured while the caller was answering is the
                 # assistant's own voice coming back through the microphone, or
@@ -281,3 +278,13 @@ class WakeListener:
                     except queue.Empty:
                         break
                 speech, silence_chunks = [], 0
+
+                # Start the window now rather than before yielding: the reply
+                # takes seconds to speak, and a window opened beforehand is
+                # mostly gone by the time the person can talk.
+                window = (
+                    self._wake.follow_up_seconds
+                    if not command
+                    else self._wake.continue_seconds
+                )
+                awake_until = time.monotonic() + window if window > 0 else 0.0

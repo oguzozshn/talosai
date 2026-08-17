@@ -158,7 +158,13 @@ def run_wake_word(assistant: Assistant, config) -> int:
                 continue
             print(f"you> {command}")
             turn = assistant.respond_to_text(command)
-            print(f"  [{turn.timings.summary()}]\n")
+            print(f"  [{turn.timings.summary()}]")
+            # Say so, because the window is invisible otherwise and the whole
+            # point of it is that you can just keep talking.
+            if config.wake.continue_seconds > 0:
+                print(f"  (still listening for {config.wake.continue_seconds:.0f}s)\n")
+            else:
+                print()
     except KeyboardInterrupt:
         listener.stop()
         print()

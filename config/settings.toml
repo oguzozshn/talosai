@@ -48,6 +48,15 @@ max_seconds = 15.0
 # People say the name, pause, and then ask. After a bare "Talos" the next
 # utterance is taken as the command without repeating the name, for this long.
 follow_up_seconds = 8.0
+# The same again after Talos answers, so a reply ending in a question can just
+# be answered. This is the setting that decides whether talking to Talos feels
+# like a conversation or like a series of commands.
+#
+# It is also the one that costs you. For this long after every answer, anything
+# said in the room is treated as addressed to Talos — and with speaker
+# verification out of scope, there is nothing to tell your voice from the
+# television's. Set to 0 to require the name every time.
+continue_seconds = 10.0
 # Said out loud when the name is heard on its own. Without it there is no way
 # to tell the difference between listening and not having heard.
 acknowledgement = "Yes?"

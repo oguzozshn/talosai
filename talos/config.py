@@ -56,6 +56,10 @@ class WakeConfig:
     # After the name is said on its own, how long the next utterance counts as
     # a command without repeating it.
     follow_up_seconds: float = 8.0
+    # The same, after Talos has answered — so a reply that ends in a question
+    # can simply be answered. Set to 0 to require the name every time, which
+    # is safer in a room with a television and no speaker verification.
+    continue_seconds: float = 10.0
     # Spoken when the name is heard alone, so there is some sign it is
     # listening. Silence is indistinguishable from not having heard.
     acknowledgement: str = "Yes?"
