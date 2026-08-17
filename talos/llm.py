@@ -186,6 +186,7 @@ class Brain:
                 options={
                     "num_ctx": self._config.context,
                     "temperature": self._config.temperature,
+                    "num_predict": self._config.max_tokens,
                 },
             )
 

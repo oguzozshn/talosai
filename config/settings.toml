@@ -50,6 +50,11 @@ think = false
 keep_alive = "30m"
 context = 4096
 temperature = 0.7
+# Runaway guard, not a style control. Reply length is the character
+# definition's job — a cap tight enough to enforce brevity also truncates the
+# answer when someone genuinely asked for detail, mid-sentence and without
+# warning. This is only here to stop a model that has started looping.
+max_tokens = 400
 
 [skills]
 enabled = true

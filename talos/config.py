@@ -56,6 +56,9 @@ class LlmConfig:
     keep_alive: str = "30m"
     context: int = 4096
     temperature: float = 0.7
+    # Runaway guard only. Length is the character definition's job; a cap tight
+    # enough to enforce brevity truncates real answers mid-sentence.
+    max_tokens: int = 400
 
 
 @dataclass(frozen=True)

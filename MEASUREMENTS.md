@@ -104,8 +104,29 @@ conversation is prefilled again for the answer. Ten seconds is too long to sit
 in silence, so phase 3 should say something before the tool runs — an
 acknowledgement covers the gap that no amount of optimisation will close.
 
+### Spoken turns, measured for real
+
+Push-to-talk, English, `en_US-lessac-medium`, audio actually playing. Four
+consecutive turns:
+
+| | Transcribe | First audio | Total |
+|---|---|---|---|
+| First turn of the session | 0.34 s | 4.06 s | 7.00 s |
+| Second | 0.31 s | 1.69 s | 12.92 s |
+| Third | 0.33 s | 1.88 s | 13.47 s |
+
+Transcription lands at 0.31–0.34 s against a text-mode 0.22 s — the difference
+is real audio rather than a clean file. First audio settles at 1.7–1.9 s
+against a 1.4 s budget: close, and the gap is generation, not plumbing.
+
+The first turn costs an extra 2 s despite warm-up, so something is still cold
+on the first real utterance. Not chased yet.
+
+Totals of 13 s are long answers being spoken in full, not slow machinery.
+Reply length is the thing to tune, not the pipeline.
+
 ## Not yet measured
 
 - End-of-speech detection (phase 2)
-- Whether a spoken turn matches the text-mode numbers
+- Why the first spoken turn is ~2 s slower than the ones after it
 - Tool-calling reliability, which is what actually decides Qwen versus Gemma
