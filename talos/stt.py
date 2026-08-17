@@ -55,12 +55,32 @@ class SpeechToText:
         except Exception as exc:  # noqa: BLE001 — warm-up is best effort
             log.warning("Whisper warm-up failed: %s", exc)
 
-    def transcribe(self, audio: np.ndarray) -> str:
-        """Turn mono float32 audio into text. Returns "" for silence."""
-        segments, _ = self._model.transcribe(
-            audio,
-            language=self._config.language,
-            beam_size=self._config.beam_size,
-            vad_filter=self._config.vad_filter,
-        )
+    def transcribe(self, audio: np.ndarray, hotwords: str | None = None) -> str:
+        """Turn mono float32 audio into text. Returns "" for silence.
+
+        `hotwords` biases the decoder towards words it would otherwise get
+        wrong. This matters enormously for the wake word: unprompted, "Talos"
+        came back as Kalos, Salos, Taroj, Tarot, titles and "Tell us". It is a
+        proper noun the model has no reason to expect, and telling it to expect
+        one is far more effective than trying to guess every misspelling
+        afterwards.
+        """
+        options = {
+            "language": self._config.language,
+            "beam_size": self._config.beam_size,
+            "vad_filter": self._config.vad_filter,
+        }
+        if hotwords:
+            options["hotwords"] = hotwords
+
+        try:
+            segments, _ = self._model.transcribe(audio, **options)
+        except TypeError:
+            # Older faster-whisper has no hotwords argument. initial_prompt is
+            # weaker but conditions the decoder the same way.
+            options.pop("hotwords", None)
+            if hotwords:
+                options["initial_prompt"] = hotwords
+            segments, _ = self._model.transcribe(audio, **options)
+
         return " ".join(segment.text.strip() for segment in segments).strip()

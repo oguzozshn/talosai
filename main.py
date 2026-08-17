@@ -182,6 +182,11 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(levelname)s %(name)s: %(message)s",
     )
+    # --verbose is for watching Talos, not its dependencies. At DEBUG these
+    # libraries emit every HTTP header and every decoding attempt, which buries
+    # the one line you were trying to read.
+    for noisy in ("httpx", "httpcore", "faster_whisper", "urllib3", "speechbrain", "numba"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     config = load()
     assistant = start_up(config, mute=args.mute)
