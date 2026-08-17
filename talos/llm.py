@@ -163,18 +163,30 @@ class Brain:
         return messages
 
     def warm_up(self) -> None:
-        """Force the model into VRAM before the first real request.
+        """Force the model into VRAM, and prefill the part of every prompt
+        that never changes.
 
-        A cold load is around a minute for a 5 GB model. keep_alive stops it
-        being unloaded again mid-conversation.
+        Loading the weights is only half of it. The character definition, the
+        profile and nine tool schemas come to well over a thousand tokens that
+        are identical on every request, and prefilling them is most of the
+        cost of a first turn — measured at 9.8 s against 1.2 s for the turns
+        after it, on a model that was already resident.
+
+        So the warm-up sends the real system prompt and the real tools rather
+        than a bare "hi". A warm-up that does not resemble the request it is
+        warming up for is not warming anything.
         """
         try:
             ollama.chat(
                 model=self._config.model,
-                messages=[{"role": "user", "content": "hi"}],
+                messages=self._messages("hello"),
+                tools=self._tools(),
                 think=self._config.think,
                 keep_alive=self._config.keep_alive,
-                options={"num_predict": 1},
+                options={
+                    "num_ctx": self._config.context,
+                    "num_predict": 1,
+                },
             )
         except Exception as exc:  # noqa: BLE001 — warm-up is best effort
             log.warning("Model warm-up failed: %s", exc)

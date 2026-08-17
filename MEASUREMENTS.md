@@ -165,8 +165,27 @@ on the first real utterance. Not chased yet.
 Totals of 13 s are long answers being spoken in full, not slow machinery.
 Reply length is the thing to tune, not the pipeline.
 
+### The first turn, explained
+
+The first turn of a session was slower than the ones after it, and warming the
+model up had not fixed it. Measured properly it was much worse than it looked
+from the spoken timings:
+
+| | First audio |
+|---|---|
+| Turn 1, warm-up sending `"hi"` | **9.77 s** |
+| Turn 1, warm-up sending the real prompt and tools | **1.61 s** |
+| Turns 2-4, either way | 1.2-1.3 s |
+
+The model was already resident both times — `ollama ps` confirmed it. Loading
+weights was never the problem. The character definition, the profile and nine
+tool schemas come to well over a thousand tokens that are identical on every
+request, and prefilling them is what the first turn was paying for.
+
+A warm-up that does not resemble the request it is warming up for warms
+nothing.
+
 ## Not yet measured
 
 - End-of-speech detection (phase 2)
-- Why the first spoken turn is ~2 s slower than the ones after it
-- Tool-calling reliability, which is what actually decides Qwen versus Gemma
+- How often the wake word fires when it should not, in ordinary use
