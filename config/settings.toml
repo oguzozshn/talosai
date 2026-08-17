@@ -13,6 +13,16 @@ history_turns = 6
 # Write every exchange to data/memory.db so it can be recalled later. The file
 # is git-ignored and never leaves the machine; delete it to forget everything.
 remember = true
+# When exchanges fall out of the window above, condense them into a running
+# note instead of discarding them. Without this a long conversation forgets its
+# own beginning without saying so, and answers confidently about a subject it
+# can no longer see. Costs one extra model call whenever the window overflows.
+summarise = true
+# Hard ceiling on those notes, in characters. Asked to keep everything and stay
+# brief, a summariser reliably picks "keep everything" — the note grows by a
+# clause each time and eventually crowds out the conversation it supports. Over
+# this, it gets compressed again.
+summary_chars = 600
 
 [audio]
 # 16 kHz because Whisper resamples to it anyway. Recording here avoids a

@@ -134,6 +134,9 @@ class Brain:
         self._max_rounds = max_rounds
         self._memory = memory
         self._history: list[dict[str, str]] = []
+        # A running précis of what fell out of the window. Kept per session:
+        # anything older than that is in the database and reachable by recall.
+        self._summary = ""
 
     def _system_prompt(self) -> str:
         """Character plus profile, read fresh so edits apply without a restart."""
@@ -143,11 +146,17 @@ class Brain:
         return f"{self._character}\n\n## Who you are talking to\n\n{profile}"
 
     def _messages(self, prompt: str) -> list[dict[str, str]]:
-        return [
-            {"role": "system", "content": self._system_prompt()},
-            *self._history,
-            {"role": "user", "content": prompt},
-        ]
+        messages = [{"role": "system", "content": self._system_prompt()}]
+        if self._summary:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"Earlier in this conversation: {self._summary}",
+                }
+            )
+        messages += self._history
+        messages.append({"role": "user", "content": prompt})
+        return messages
 
     def warm_up(self) -> None:
         """Force the model into VRAM before the first real request.
@@ -298,7 +307,104 @@ class Brain:
         # exchanges, which are the ones pronouns and follow-ups refer back to.
         limit = self._assistant.history_turns * 2
         if len(self._history) > limit:
-            self._history = self._history[-limit:]
+            dropped, self._history = self._history[:-limit], self._history[-limit:]
+            self._condense(dropped)
+
+    def _condense(self, dropped: list[dict[str, str]]) -> None:
+        """Fold what fell out of the window into the running summary.
+
+        Without this, a long conversation forgets its own beginning without
+        saying so: the assistant answers confidently about a subject it can no
+        longer see. A précis is not as good as the transcript, but it is the
+        difference between a vague memory and none.
+        """
+        if not self._assistant.summarise or not dropped:
+            return
+
+        transcript = "\n".join(
+            f"{'User' if m['role'] == 'user' else 'You'}: {m['content']}" for m in dropped
+        )
+        # The existing notes go in the material to be rewritten, not in the
+        # instruction. Appending "fold this in" to the system prompt was
+        # ignored on the third pass in testing: the model summarised only the
+        # new transcript and silently dropped a fact from two rounds earlier.
+        instruction = (
+            "You are keeping running notes on a conversation, for your own "
+            "later reference. Rewrite the notes so they cover both what you "
+            "already noted and the new part. Nothing already noted may be "
+            "dropped unless the new part supersedes it. Keep names, numbers, "
+            "decisions and anything the user asked to be remembered; drop "
+            "pleasantries. At most three sentences. Output only the notes."
+        )
+        material = (
+            f"Existing notes:\n{self._summary or '(none yet)'}\n\n"
+            f"New part of the conversation:\n{transcript}"
+        )
+
+        try:
+            response = ollama.chat(
+                model=self._config.model,
+                messages=[
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": material},
+                ],
+                think=False,
+                keep_alive=self._config.keep_alive,
+                options={"num_ctx": self._config.context, "temperature": 0.2,
+                         "num_predict": 160},
+            )
+        except Exception as exc:  # noqa: BLE001 — a lost summary is not a lost turn
+            log.warning("could not summarise dropped history: %s", exc)
+            return
+
+        summary = (response.get("message", {}).get("content") or "").strip()
+        if not summary:
+            return
+
+        # Summarisers concatenate. Asked to keep everything and stay short, the
+        # model reliably chooses "keep everything", so the note grows by a
+        # clause per fold and would eventually crowd out the conversation it
+        # exists to support. The sentence limit is a request; this is the bound.
+        if len(summary) > self._assistant.summary_chars:
+            summary = self._compress(summary)
+
+        self._summary = summary
+        log.info("condensed %d message(s): %s", len(dropped), summary)
+
+    def _compress(self, notes: str) -> str:
+        """Squeeze over-long notes back under budget."""
+        budget = self._assistant.summary_chars
+        try:
+            response = ollama.chat(
+                model=self._config.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"Shorten these notes to under {budget} characters. "
+                            "Keep every name, number and decision. Cut wording, "
+                            "not facts. Output only the shortened notes."
+                        ),
+                    },
+                    {"role": "user", "content": notes},
+                ],
+                think=False,
+                keep_alive=self._config.keep_alive,
+                options={"num_ctx": self._config.context, "temperature": 0.2,
+                         "num_predict": 200},
+            )
+            shorter = (response.get("message", {}).get("content") or "").strip()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("could not compress notes: %s", exc)
+            shorter = ""
+
+        if shorter and len(shorter) < len(notes):
+            return shorter
+
+        # Last resort: cut at a sentence boundary rather than mid-word, keeping
+        # the earliest notes, which hold the facts the later ones refer back to.
+        cut = notes.rfind(". ", 0, budget)
+        return notes[: cut + 1] if cut > 0 else notes[:budget]
 
     def forget(self) -> None:
         self._history.clear()

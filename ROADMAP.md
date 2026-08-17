@@ -167,8 +167,24 @@ Two decisions worth keeping:
   questions have nothing to do with last Tuesday, and searching anyway pushes
   unrelated context into the prompt as well as costing an embedding.
 
-Still open: summarisation. History is trimmed at six turns, so anything older
-falls out silently rather than being condensed.
+**Summarisation is built too.** Exchanges that fall out of the window are
+folded into running notes rather than dropped, so a long conversation does not
+forget its own beginning while continuing to sound confident.
+
+Two things testing forced, both the same lesson as everywhere else in this
+project — what a prompt asks for is not what you get:
+
+- *Folding has to be framed as rewriting.* Appending "fold this into what you
+  already noted" to the instruction worked twice and then silently dropped a
+  fact from two rounds earlier. Putting the existing notes into the material
+  to be rewritten, rather than into the instruction, fixed it.
+- *Summarisers concatenate.* Asked to keep everything and stay brief, the
+  model reliably chooses keep-everything, and the notes grow a clause per fold.
+  The sentence limit is a request; a character ceiling with a compression pass
+  is the bound.
+
+Verified over eight turns with a deliberately tiny window: two facts from the
+first turn survived four condensations and two compressions.
 
 ---
 

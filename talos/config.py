@@ -29,6 +29,13 @@ class AssistantConfig:
     # Whether exchanges are written to data/memory.db and can be searched
     # later. Turning this off makes every conversation end when it ends.
     remember: bool = True
+    # Condense exchanges that fall out of the window instead of dropping them.
+    # Costs one extra model call each time the window overflows.
+    summarise: bool = True
+    # Hard bound on those notes. Summarisers concatenate rather than compress,
+    # so without a ceiling the note grows a clause per fold until it crowds out
+    # the conversation it exists to support.
+    summary_chars: int = 600
 
 
 @dataclass(frozen=True)
