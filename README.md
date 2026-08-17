@@ -94,13 +94,22 @@ discovered from files and called by the model.
 |---|---|
 | 0 — environment | Done. Numbers in [MEASUREMENTS.md](MEASUREMENTS.md) |
 | 1 — the chain | Done, push-to-talk. 0.93 s to first audio |
-| 2 — voice and wake word | Not started. Needs voice recordings |
-| 3 — skills | Built: 7 skills, sandboxed, permission-tiered |
-| 4 — memory | Not started |
+| 2 — wake word | Done. No trained model — see below |
+| 3 — skills | Done: 9 skills, sandboxed, permission-tiered |
+| 4 — memory | Profile and recall done; summarisation open |
 | 5 — living with it | Not started |
 
-Phase 2 is out of order deliberately: it cannot be built without sitting at the
-microphone, so phase 3 went first. See [ROADMAP.md](ROADMAP.md).
+Two departures from the plan, both deliberate:
+
+**No wake word model.** Training one costs hours of setup and days of threshold
+tuning. Transcription costs 0.22 s on this GPU, so speech is simply transcribed
+and the name matched as a word by a model that already knows it. The cost is
+that every utterance in the room is transcribed, not only the ones addressed
+here.
+
+**No speaker verification.** Dropped at the owner's request. The consequence is
+that nothing distinguishes your voice from the television's, which matters most
+in the seconds after a reply, when Talos is still listening.
 
 ### Known rough edges
 

@@ -155,6 +155,21 @@ through retrieval.** Do not embed the codebase — the index goes stale on every
 commit, and semantic similarity finds worse matches in source code than a plain
 text search does.
 
+**Profile and log are built.** Verified across processes: told about a BACnet
+bug in one run, asked in a separate one, recalled correctly.
+
+Two decisions worth keeping:
+
+- The profile is never searched. Facts you always need are not a retrieval
+  problem, and an assistant that intermittently forgets your name is worse
+  than one that never knew it.
+- Recall is a skill the model calls, not retrieval on every turn. Most
+  questions have nothing to do with last Tuesday, and searching anyway pushes
+  unrelated context into the prompt as well as costing an embedding.
+
+Still open: summarisation. History is trimmed at six turns, so anything older
+falls out silently rather than being condensed.
+
 ---
 
 ## Phase 5 — Living with it
