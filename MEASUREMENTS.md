@@ -42,6 +42,29 @@ Gemma. That is the cost `keep_alive` exists to avoid.
 5.6 GB and 323 MB, both reported at 100% GPU. Its first use cost 18 s while it
 loaded; the turn after was 3.15 s.
 
+### The model choice, decided
+
+`scripts/compare_models.py`, twelve cases, one run each. Seven expect a
+particular skill; five expect none, because a model that reaches for a tool on
+every question is not being helpful — each call costs a full extra round trip.
+
+| Model | Correct | Wrong | Missed | Unwanted | Bad args | Median |
+|---|---|---|---|---|---|---|
+| `qwen3:8b` | **12/12** | 0 | 0 | 0 | 0 | 2.14 s |
+| `gemma3:4b` | — | — | — | — | — | — |
+
+**Gemma 3 cannot call tools at all.** Every request returns
+`does not support tools (status code: 400)`. It was pulled as the tool-calling
+comparison and was never a candidate — which should have been checked before
+half the VRAM planning was built on the possibility of switching to it.
+
+That also closes the idea of freeing 2.3 GB by dropping to a 4B and spending it
+on neural text-to-speech. There is no 4B to drop to.
+
+Qwen3 is kept. Worth being honest about what the score means: twelve
+unambiguous cases, one run each. It says Qwen3 is not obviously broken at tool
+choice, not that it is reliable in conversation.
+
 ### Only one of them can be resident
 
 5.6 + 2.9 GB does not fit in 8 GB. Loading Gemma evicted Qwen, and switching

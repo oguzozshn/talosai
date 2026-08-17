@@ -129,11 +129,12 @@ compare.
 at a microphone and this could be. Seven skills, schemas derived from function
 signatures, one sandbox every path goes through, three permission tiers.
 
-Two things still open:
+**The comparison has been run** — `scripts/compare_models.py`, results in
+MEASUREMENTS.md. Qwen3 scored 12 of 12; Gemma 3 turned out to be incapable of
+tool calling at all, which retired both the comparison and the plan that
+depended on it.
 
-- **The comparison has not been run.** Qwen3 calls tools correctly in the cases
-  tried, but "correctly in the cases tried" is not a measurement. Gemma has not
-  been tried at all. This is what the model choice turns on.
+One thing still open:
 - **A skill call takes about ten seconds**, against one for a plain answer. The
   extra round trip is structural and will not optimise away, so the assistant
   should acknowledge before the tool runs rather than leaving ten seconds of
