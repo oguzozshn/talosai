@@ -137,6 +137,10 @@ class Brain:
         # A running précis of what fell out of the window. Kept per session:
         # anything older than that is in the database and reachable by recall.
         self._summary = ""
+        # Skills requested during the last reply, in order. Exposed because
+        # which tool a model reaches for is the thing worth measuring about it,
+        # and it is otherwise only visible in the log.
+        self.last_tool_calls: list[tuple[str, dict]] = []
 
     def _system_prompt(self) -> str:
         """Character plus profile, read fresh so edits apply without a restart."""
@@ -211,6 +215,7 @@ class Brain:
         """Stream the answer sentence by sentence, calling skills as needed."""
         messages = self._messages(prompt)
         spoken: list[str] = []
+        self.last_tool_calls = []
 
         for round_number in range(self._max_rounds + 1):
             # Past the ceiling, offer no tools at all. Telling a looping model
@@ -283,6 +288,7 @@ class Brain:
                     ],
                 }
             )
+            self.last_tool_calls += tool_calls
             for name, arguments in tool_calls:
                 log.info("calling skill %s(%s)", name, arguments)
                 result = self._registry.execute(name, arguments, self._confirm)
