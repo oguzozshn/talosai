@@ -38,6 +38,40 @@ def resolve_hotkey(name: str):
     return key
 
 
+def show_memory(erase: bool = False) -> int:
+    """Read the memory from outside the assistant.
+
+    Whether Talos remembered something is otherwise only visible through its
+    own answer, which is exactly the thing being tested — so there needs to be
+    a way to look at the record directly.
+    """
+    from talos.memory import DATABASE, Memory, load_profile
+
+    memory = Memory()
+
+    if erase:
+        removed = memory.forget_all()
+        print(f"Erased {removed} exchange(s) from {DATABASE}")
+        return 0
+
+    profile = load_profile()
+    print("Profile")
+    print("-------")
+    print(profile if profile else "  (none — config/profile.md is empty or missing)")
+
+    total = memory.count()
+    print(f"\n\nRemembered exchanges: {total}")
+    print(f"Database: {DATABASE}")
+    print(f"Semantic search: {'available' if memory._vec_available else 'unavailable'}")
+
+    if total:
+        print("\nMost recent")
+        print("-----------")
+        for exchange in memory.recent(10):
+            print(f"  {exchange.summary()}")
+    return 0
+
+
 def console_confirm(skill_name: str, permission) -> bool:
     """Ask at the terminal before a skill that changes something runs.
 
@@ -178,6 +212,8 @@ def main() -> int:
     parser.add_argument("--say", help="run one exchange with this text, then exit")
     parser.add_argument("--mute", action="store_true", help="run the chain but do not play audio")
     parser.add_argument("--devices", action="store_true", help="list audio devices and exit")
+    parser.add_argument("--memory", action="store_true", help="show what is remembered and exit")
+    parser.add_argument("--forget", action="store_true", help="erase everything remembered")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -186,6 +222,9 @@ def main() -> int:
 
         print(listing())
         return 0
+
+    if args.memory or args.forget:
+        return show_memory(erase=args.forget)
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING,
