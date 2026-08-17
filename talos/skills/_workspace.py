@@ -81,6 +81,12 @@ def resolve(relative: str = "", *, allow_secret: bool = False) -> Path:
         # "personnal_assistant/siradaki.md" both work without being told which
         # root they belong to.
         attempts = [root / candidate for root in WORKSPACES]
+        # A root can also be named directly. One of them is a project rather
+        # than a folder of projects, and asking for it by name would otherwise
+        # look inside it for a copy of itself. Resolving from the parent still
+        # goes through the containment check below, so a sibling like "CV" is
+        # refused as it should be.
+        attempts += [root.parent / candidate for root in WORKSPACES]
 
     resolved = None
     for attempt in attempts:
@@ -117,6 +123,10 @@ def describe(path: Path) -> str:
             relative = path.relative_to(root)
         except ValueError:
             continue
+        # The root itself relativises to ".", which reads badly out loud as
+        # "personnal underscore assistant slash dot".
+        if str(relative) == ".":
+            return root.name
         # Name the root when there is more than one, or "data/W34.json" is
         # ambiguous between projects.
         return f"{root.name}/{relative}" if len(WORKSPACES) > 1 else str(relative)

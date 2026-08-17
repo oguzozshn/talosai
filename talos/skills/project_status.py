@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
+from talos.skills._run import git as run_git
 from talos.skills._workspace import (
     WORKSPACES,
     OutsideWorkspace,
@@ -16,18 +16,14 @@ from talos.skills.base import Permission, skill
 
 
 def _git(repo: Path, *args: str) -> str | None:
-    try:
-        proc = subprocess.run(
-            ["git", "-C", str(repo), *args],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-    return proc.stdout.strip() if proc.returncode == 0 else None
+    """Run git, or give up. None means "could not answer", including a hang.
+
+    Timeouts are real here rather than defensive: these repositories sit in a
+    OneDrive folder with files-on-demand, and git blocks while the contents
+    are fetched from the cloud.
+    """
+    code, out = run_git(repo, *args)
+    return out if code == 0 else None
 
 
 @skill(Permission.OPEN)
