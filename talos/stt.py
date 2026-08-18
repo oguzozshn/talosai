@@ -106,6 +106,41 @@ class SpeechToText:
         except Exception as exc:  # noqa: BLE001 — warm-up is best effort
             log.warning("Whisper warm-up failed: %s", exc)
 
+    def transcribe_words(
+        self, audio: np.ndarray, hotwords: str | None = None
+    ) -> tuple[str, list]:
+        """Transcribe, and report how sure it was of each word.
+
+        Costs slightly more than plain transcription because the alignment has
+        to be computed, so it is only used when something wants the
+        confidences — practice mode, and nothing else.
+        """
+        from talos.coach import Word
+
+        segments, _ = self._model.transcribe(
+            audio, **self._options(hotwords), word_timestamps=True
+        )
+
+        text_parts: list[str] = []
+        words: list[Word] = []
+        for segment in segments:
+            text_parts.append(segment.text.strip())
+            for word in getattr(segment, "words", None) or []:
+                words.append(Word(word.word.strip(), float(word.probability)))
+
+        return " ".join(text_parts).strip(), words
+
+    def _options(self, hotwords: str | None) -> dict:
+        options = {
+            "language": self._config.language,
+            "beam_size": self._config.beam_size,
+            "vad_filter": self._config.vad_filter,
+        }
+        combined = " ".join(part for part in (hotwords, self._vocabulary) if part)
+        if combined:
+            options["hotwords"] = combined
+        return options
+
     def transcribe(self, audio: np.ndarray, hotwords: str | None = None) -> str:
         """Turn mono float32 audio into text. Returns "" for silence.
 
@@ -116,17 +151,10 @@ class SpeechToText:
         one is far more effective than trying to guess every misspelling
         afterwards.
         """
-        options = {
-            "language": self._config.language,
-            "beam_size": self._config.beam_size,
-            "vad_filter": self._config.vad_filter,
-        }
         # The caller's hint goes first: when the wake word is being listened
         # for, it matters more than the vocabulary behind it.
-        combined = " ".join(part for part in (hotwords, self._vocabulary) if part)
-        if combined:
-            options["hotwords"] = combined
-        hotwords = combined or None
+        options = self._options(hotwords)
+        hotwords = options.get("hotwords")
 
         try:
             segments, _ = self._model.transcribe(audio, **options)

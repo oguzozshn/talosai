@@ -261,6 +261,23 @@ voice; no shell metacharacters, ever. Voice plus an 8B model plus an unguarded
 shell is how a folder goes missing — Whisper heard "serialization" as
 "sterilization" on the first day.
 
-**Reading the screen.** Would need a vision model in the remaining VRAM, which
-means dropping the language model to a smaller one. Expensive; judge it
-against the others rather than assuming it is the impressive one.
+~~**Reading the screen.**~~ Built — `talos/skills/screen.py`, using OCR rather
+than a vision model. Tesseract on the CPU costs 1.8 s and no VRAM; a vision
+model would have meant unloading the language model for every glance. It reads
+text, not pictures, which covers most of what anyone asks about their own
+screen.
+
+~~**English practice.**~~ Built — `talos/coach.py` and
+`talos/skills/practice.py`. Say "let's practise English" and replies come back
+with one correction attached.
+
+Two things learned there, both generalisable. The two-part shape (talk back,
+then correct) could not be had by describing it — the model collapsed it into
+corrections only, or read the headings out loud. Four worked examples in the
+prompt fixed what three paragraphs of instruction could not. And switching
+modes has to clear the history: the model copies the shape of recent turns far
+more readily than it re-reads its instructions, so it kept correcting after
+being told to stop.
+
+It is an 8B model, and it misses things. It caught "I go" for "I went" and
+"since three years" for "for three years", and let "I want improve it" past.

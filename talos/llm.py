@@ -17,7 +17,9 @@ from datetime import datetime
 import ollama
 
 from talos.config import AssistantConfig, LlmConfig
+from talos.coach import COACHING
 from talos.memory import Exchange, Memory, embed, load_profile
+from talos.session import current as session
 from talos.skills import ConfirmFn, Registry
 
 log = logging.getLogger(__name__)
@@ -141,13 +143,24 @@ class Brain:
         # which tool a model reaches for is the thing worth measuring about it,
         # and it is otherwise only visible in the log.
         self.last_tool_calls: list[tuple[str, dict]] = []
+        # Which mode the history was built under. Changing mode has to clear
+        # it: the model copies the shape of the last few turns far more
+        # readily than it re-reads its instructions, so leaving corrections in
+        # the history means it keeps correcting after being told to stop.
+        self._history_mode = session.coaching
 
     def _system_prompt(self) -> str:
         """Character plus profile, read fresh so edits apply without a restart."""
         profile = load_profile()
-        if not profile:
-            return self._character
-        return f"{self._character}\n\n## Who you are talking to\n\n{profile}"
+        prompt = self._character
+        if profile:
+            heading = "## Who you are talking to"
+            prompt = f"{prompt}\n\n{heading}\n\n{profile}"
+        # Appended rather than substituted: practice mode changes what the
+        # reply is for, not who it is talking to or how long it may be.
+        if session.coaching:
+            prompt = f"{prompt}\n{COACHING}"
+        return prompt
 
     @staticmethod
     def _now() -> str:
@@ -246,9 +259,22 @@ class Brain:
             return None
         return self._registry.schemas()
 
-    def reply(self, prompt: str) -> Iterator[str]:
-        """Stream the answer sentence by sentence, calling skills as needed."""
+    def reply(self, prompt: str, note: str = "") -> Iterator[str]:
+        """Stream the answer sentence by sentence, calling skills as needed.
+
+        `note` is context about this turn rather than about the conversation —
+        currently which words the recogniser struggled with. It is not stored,
+        because it describes one recording and would be meaningless attached to
+        the transcript later.
+        """
+        if session.coaching != self._history_mode:
+            self._history.clear()
+            self._summary = ""
+            self._history_mode = session.coaching
+
         messages = self._messages(prompt)
+        if note:
+            messages.insert(-1, {"role": "system", "content": note})
         spoken: list[str] = []
         self.last_tool_calls = []
 

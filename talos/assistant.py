@@ -15,10 +15,12 @@ from pathlib import Path
 
 import numpy as np
 
+from talos.coach import pronunciation_note
 from talos.config import Config
 from talos.devices import resolve
 from talos.llm import Brain
 from talos.memory import Memory
+from talos.session import current as session
 from talos.skills import ConfirmFn, Registry
 from talos.skills import load as load_skills
 from talos.stt import SpeechToText
@@ -129,18 +131,43 @@ class Assistant:
         timings = Timings()
 
         transcribe_started = time.perf_counter()
-        heard = self.ears.transcribe(audio)
+        note = ""
+        if session.coaching:
+            # Only while practising: word timestamps cost extra alignment work
+            # for a signal nothing else uses.
+            heard, words = self.ears.transcribe_words(audio)
+            note = pronunciation_note(words)
+        else:
+            heard = self.ears.transcribe(audio)
         timings.transcribe = time.perf_counter() - transcribe_started
 
         if not heard:
             return None
 
-        self._speak(self.brain.reply(heard), timings, started)
+        self._speak(self.brain.reply(heard, note=note), timings, started)
         timings.total = time.perf_counter() - started
         return Turn(heard=heard, timings=timings)
 
+    def _guarded(self, sentences):
+        """Yield a reply, turning a failure into something sayable.
+
+        The model runs in a separate process that can stop — the machine
+        sleeps, the tray app exits, someone runs ollama stop. Before this, that
+        surfaced as a stack trace and a dead program in the middle of a
+        conversation. An assistant should be able to say that it cannot think
+        right now.
+        """
+        try:
+            yield from sentences
+        except ConnectionError:
+            yield "I can't reach the model right now. Is Ollama running?"
+        except Exception as exc:  # noqa: BLE001 — one bad turn is not a crash
+            log.exception("turn failed")
+            yield f"Something went wrong while I was thinking: {type(exc).__name__}."
+
     def _speak(self, sentences, timings: Timings, started: float) -> None:
         """Consume the reply stream, printing it and speaking it."""
+        sentences = self._guarded(sentences)
         first_seen: float | None = None
 
         def echo(stream):
