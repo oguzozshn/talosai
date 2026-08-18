@@ -135,8 +135,11 @@ def read_screen(monitor: int = 1, language: str = "") -> str:
     note = "\n\n[There was more than this.]" if truncated else ""
     return (
         f"Text on {where}:\n\n{cleaned}{note}\n\n"
-        f"This came from character recognition, so odd spellings are probably "
-        f"mine rather than yours."
+        f"Answer what was asked about this in a sentence or two. Do not read "
+        f"it back — he can see the screen, he wanted to know something about "
+        f"it. This came from character recognition, so a mangled word is "
+        f"probably a misreading: say you could not make it out rather than "
+        f"guessing, and never translate a word that came out garbled."
     )
 
 
