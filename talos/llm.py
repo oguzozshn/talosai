@@ -17,7 +17,7 @@ from datetime import datetime
 import ollama
 
 from talos.config import AssistantConfig, LlmConfig
-from talos.coach import COACHING
+from talos.coach import CONVERSATION, correction_for
 from talos.memory import Exchange, Memory, embed, load_profile
 from talos.session import current as session
 from talos.skills import ConfirmFn, Registry
@@ -156,10 +156,11 @@ class Brain:
         if profile:
             heading = "## Who you are talking to"
             prompt = f"{prompt}\n\n{heading}\n\n{profile}"
-        # Appended rather than substituted: practice mode changes what the
-        # reply is for, not who it is talking to or how long it may be.
+        # While practising, the prompt says only how to converse.
+        # Correcting is a separate call assembled afterwards: asking one
+        # call to do both reliably produced one at the expense of the other.
         if session.coaching:
-            prompt = f"{prompt}\n{COACHING}"
+            prompt = f"{prompt}\n{CONVERSATION}"
         return prompt
 
     @staticmethod
@@ -354,6 +355,17 @@ class Brain:
                 log.info("calling skill %s(%s)", name, arguments)
                 result = self._registry.execute(name, arguments, self._confirm)
                 messages.append({"role": "tool", "name": name, "content": result})
+
+        # After the conversation, never inside it. The reply is already being
+        # spoken by the time this runs, so the second call costs nothing the
+        # listener notices.
+        if session.coaching:
+            correction = correction_for(
+                prompt, self._config.model, self._config.keep_alive
+            )
+            if correction:
+                spoken.append(correction)
+                yield correction
 
         self._remember(prompt, " ".join(spoken))
 
