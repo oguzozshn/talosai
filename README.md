@@ -1,6 +1,8 @@
 # Talos
 
-A fully local voice assistant for Windows. No cloud APIs, no subscriptions, no data leaving the machine.
+A voice assistant for Windows that runs on your own machine. Speech, reasoning,
+memory and voice are local; two named skills reach the internet and are listed
+below.
 
 Named after the bronze automaton of Greek myth that patrolled the shores of Crete — arguably the first artificial guardian anyone imagined. It waits quietly, answers when called, and gets out of the way.
 
@@ -21,16 +23,23 @@ These are hard requirements, not preferences:
    Delete the file and the exception goes with it. Nothing else in Talos
    depends on either.
 2. **Fits in 8 GB of VRAM.** Speech recognition and the language model must coexist on a single laptop GPU.
-3. **Voice-gated.** The assistant recognises its owner's voice and refuses destructive actions from anyone else.
+3. **Nothing destructive happens silently.** Anything that changes a file, or
+   reaches outside the machine, asks out loud first and says what it is about
+   to do. Silence and "maybe" count as no.
 4. **Skills are files.** Adding a capability means dropping a Python file into `talos/skills/` — never editing the core.
+
+Speaker verification was a fifth constraint and was dropped. The code is in
+`talos/speaker.py` and nothing enrols it, so nothing tells your voice from
+anyone else's.
 
 ## Stack
 
 | Layer | Component | Runs on |
 |---|---|---|
-| Wake word | openWakeWord | CPU |
-| Speech-to-text | faster-whisper (`large-v3-turbo`, int8) | GPU (~1.6 GB) |
-| Speaker verification | SpeechBrain ECAPA-TDNN | CPU |
+| Wake word | Whisper, matching the name as a word | GPU (shared below) |
+| Voice activity detection | Silero, via ONNX | CPU |
+| Speech-to-text | faster-whisper (`large-v3-turbo`, int8) | GPU (~1.1 GB) |
+| Screen reading | Tesseract, English and Turkish | CPU |
 | Reasoning | Ollama (Qwen3 8B, Q4_K_M) | GPU (~5.2 GB) |
 | Text-to-speech | Piper | CPU |
 | Memory | SQLite + sqlite-vec | CPU |
@@ -106,9 +115,9 @@ discovered from files and called by the model.
 | 0 — environment | Done. Numbers in [MEASUREMENTS.md](MEASUREMENTS.md) |
 | 1 — the chain | Done, push-to-talk. 0.93 s to first audio |
 | 2 — wake word | Done. No trained model — see below |
-| 3 — skills | Done: 9 skills, sandboxed, permission-tiered |
-| 4 — memory | Profile and recall done; summarisation open |
-| 5 — living with it | Not started |
+| 3 — skills | Done: 33 skills, sandboxed, permission-tiered |
+| 4 — memory | Done: profile, recall, and bounded summarisation |
+| 5 — living with it | Partly: GPU release and mode switching, no autostart |
 
 Two departures from the plan, both deliberate:
 
@@ -127,10 +136,13 @@ in the seconds after a reply, when Talos is still listening.
 - The Turkish Piper voice (`tr_TR-dfki-medium`) is the only one published, and
   it is deep and stilted. Replacing the engine costs VRAM and would force a
   smaller model — see MEASUREMENTS.md for the arithmetic.
-- A turn that calls a skill takes about ten seconds. The model should say
-  something before the tool runs rather than leave silence.
-- Ollama's tray app does not start the server on this machine; `ollama serve`
-  has to be run by hand.
+- A turn that calls a skill takes about ten seconds — a full extra round trip
+  through the model. Talos says what it is about to do first, so the gap is
+  covered rather than closed.
+- Ollama's tray app does not always survive a sleep or a lock. When Talos says
+  it cannot reach the model, launch the app or run `ollama serve`.
+- Idle costs 1.1 GB of VRAM because Whisper *is* the wake word and has to stay
+  loaded. Getting that back is measured and parked — see HACKING.md.
 
 ## Using it
 
