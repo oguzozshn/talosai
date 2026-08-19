@@ -19,6 +19,7 @@ These are hard requirements, not preferences:
    |---|---|
    | `talos/skills/todoist.py` | Task text, to Todoist. Needs a token. |
    | `talos/skills/search.py` | Your search query, to DuckDuckGo. No account. |
+   | `talos/skills/weather.py` | A place name, to Open-Meteo. No account. |
 
    Delete the file and the exception goes with it. Nothing else in Talos
    depends on either.

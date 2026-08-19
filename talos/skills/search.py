@@ -46,10 +46,13 @@ def _clean(fragment: str) -> str:
 
 @skill(Permission.OPEN)
 def web_search(query: str, limit: int = 3) -> str:
-    """Search the web and report what the top results say.
+    """Look something up online: current facts, weather, news, prices, documentation.
+
+    Use this for anything you do not know or that changes — today's weather,
+    what a library does, what happened recently. Do not offer to search; search.
 
     Args:
-        query: What to search for
+        query: What to look up
         limit: How many results to report, at most
     """
     query = query.strip()
