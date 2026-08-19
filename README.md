@@ -150,6 +150,13 @@ in the seconds after a reply, when Talos is still listening.
 thirty-three skills, grouped, with example phrasings. You never name a skill;
 you say what you want.
 
+## What it needs next
+
+[NEXT.md](NEXT.md) is a standalone prompt for an agent session: tests first,
+then growing the benchmark to match the skill set, then removing what is not
+used, then the two structural gaps — nothing happens unprompted, and it has
+never run for a whole day.
+
 ## Changing it
 
 [HACKING.md](HACKING.md) covers where its reach is configured, how to change
