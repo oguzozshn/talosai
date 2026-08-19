@@ -255,6 +255,42 @@ allowlist of names to executables. Small, and immediately useful.
 **Clipboard.** "What did I just copy?", "save that as a note". Two lines with
 `pywin32`, and it bridges what you are looking at to what Talos knows.
 
+**A trained wake word, to get 1.1 GB of VRAM back.** Started, measured,
+parked — the pipeline is in the repo and works; the training data is not good
+enough.
+
+Whisper is currently the wake word, which is why it stays loaded: 1137 MB, all
+the time. openWakeWord itself is nearly free — 176 MB of RAM, no VRAM, 2.9% of
+one core, slightly *less* than the voice activity detection it would replace.
+
+What is already there: `scripts/make_wake_samples.py` synthesises positives and
+adversarial negatives with Piper, `scripts/train_wake_word.py` trains the small
+head that sits on openWakeWord's shared embedding model, and
+`scripts/test_wake_word.py` scores it against ten hours of real speech.
+
+What stopped it, measured rather than guessed:
+
+| threshold | false wakes/hour | wake word caught |
+|---|---|---|
+| 0.50 | 750.0 | 99% |
+| 0.90 | 89.1 | 87% |
+| 0.99 | 0.7 | 41% |
+
+There is no usable point on that curve. Thirty synthetic negative phrases from
+two TTS voices do not cover real speech. The fix is openWakeWord's published
+negative features — 2000 hours, **16.5 GB**, temporary, deletable once trained.
+
+Two things to know before restarting it. The saving only arrives if Whisper is
+*unloaded* while idle, and reloading it costs 3.9–4.7 s on the first wake after
+a quiet spell. And `release_gpu` already frees the larger 5.6 GB on request, so
+this recovers the smaller half of the problem.
+
+Also note `openwakeword[full]` cannot install here: it pins tensorflow 2.8.1,
+which has no Python 3.12 wheels. TensorFlow is only used to convert the model
+to tflite, and we load ONNX, so the training path works without it — see the
+scipy shim at the top of the training script for the one other thing that
+breaks.
+
 **Terminal, with an allowlist.** Deliberately deferred. `git status`,
 `dotnet build`, `npm test` run without asking; anything else is confirmed by
 voice; no shell metacharacters, ever. Voice plus an 8B model plus an unguarded
