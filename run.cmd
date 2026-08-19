@@ -11,6 +11,13 @@ REM first thing that goes wrong for anyone setting this up.
 setlocal
 set "VENV_PYTHON=%USERPROFILE%\.venvs\talos\Scripts\python.exe"
 
+REM The console here is cp1254, so anything printing an em dash or an
+REM emoji dies with UnicodeEncodeError rather than printing it badly.
+REM Torch's ONNX exporter prints a tick on success, which is a strange
+REM way to lose a trained model.
+set "PYTHONIOENCODING=utf-8"
+set "PYTHONUTF8=1"
+
 if not exist "%VENV_PYTHON%" (
     echo No virtual environment at %VENV_PYTHON%
     echo.
