@@ -40,7 +40,7 @@ import numpy as np
 import sounddevice as sd
 
 from talos.config import AudioConfig, WakeConfig
-from talos.devices import resolve
+from talos.devices import refresh, resolve
 
 log = logging.getLogger(__name__)
 
@@ -273,26 +273,22 @@ class WakeListener:
 
         import torch
 
-        with sd.InputStream(
-            samplerate=rate, channels=1, dtype="float32",
-            callback=callback, blocksize=chunk, device=self._device,
-        ):
+        stream = self._open_stream(rate, chunk, callback)
+        try:
             log.info("listening for '%s'", self._wake.word)
             while not self._stop.is_set():
                 try:
                     block = chunks.get(timeout=0.5)
                 except queue.Empty:
                     # No audio at all, not even silence. The callback should
-                    # deliver a block every 32 ms, so this means the input
-                    # stream has stopped — which looks exactly like "it stopped
-                    # listening to me" from the outside, and needs to be
-                    # distinguishable from "it heard me and ignored it".
+                    # deliver a block every 32 ms, so this means the stream has
+                    # stopped — almost always because the microphone it was
+                    # opened on was unplugged.
                     starved += 1
-                    if starved == 4:
-                        log.warning(
-                            "no audio from the microphone for 2s — the input "
-                            "stream may have been dropped"
-                        )
+                    if starved >= 4:
+                        log.warning("no audio for 2s, reopening the microphone")
+                        stream = self._reopen(stream, rate, chunk, callback)
+                        starved = 0
                     continue
                 starved = 0
 
@@ -395,3 +391,51 @@ class WakeListener:
                     else self._wake.continue_seconds
                 )
                 awake_until = time.monotonic() + window if window > 0 else 0.0
+        finally:
+            self._close(stream)
+
+
+    def _open_stream(self, rate: int, chunk: int, callback):
+        """Open the microphone, resolving the device fresh each time.
+
+        Resolved here rather than once in __init__: a device index that was
+        right at startup points at nothing after the headset it named is
+        unplugged.
+        """
+        self._device = resolve(self._audio.input_device, kind="input")
+        stream = sd.InputStream(
+            samplerate=rate, channels=1, dtype="float32",
+            callback=callback, blocksize=chunk, device=self._device,
+        )
+        stream.start()
+        return stream
+
+    @staticmethod
+    def _close(stream) -> None:
+        if stream is None:
+            return
+        try:
+            stream.stop()
+            stream.close()
+        except Exception as exc:  # noqa: BLE001 — it may already be gone
+            log.debug("could not close the input stream: %s", exc)
+
+    def _reopen(self, stream, rate: int, chunk: int, callback):
+        """Close, re-read the device list, and open again.
+
+        The refresh is the part that matters. PortAudio caches its device list
+        at initialisation, so after a headset is unplugged it keeps offering
+        the device that left and keeps resolving "the default" to it — opening
+        a new stream without refreshing gets the same dead microphone back.
+        """
+        self._close(stream)
+        refresh()
+        try:
+            reopened = self._open_stream(rate, chunk, callback)
+            log.info("microphone reopened")
+            return reopened
+        except Exception as exc:  # noqa: BLE001
+            # Nothing usable right now. Returning None keeps the loop alive so
+            # it can try again when something is plugged back in.
+            log.warning("no microphone available: %s", exc)
+            return None

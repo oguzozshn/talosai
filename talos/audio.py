@@ -14,7 +14,7 @@ import numpy as np
 import sounddevice as sd
 
 from talos.config import AudioConfig
-from talos.devices import resolve
+from talos.devices import refresh, resolve
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +46,11 @@ class Recorder:
     def start(self) -> None:
         if self._stream is not None:
             return
+        # Re-resolved on every recording rather than once at startup: the
+        # headset the default pointed at may have been unplugged since, and
+        # PortAudio has to be asked again before it will admit that.
+        refresh()
+        self.device = resolve(self._config.input_device, kind="input")
         with self._lock:
             self._frames.clear()
         self._stream = sd.InputStream(

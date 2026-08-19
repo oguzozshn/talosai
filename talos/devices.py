@@ -23,6 +23,26 @@ class DeviceNotFound(ValueError):
     pass
 
 
+def refresh() -> None:
+    """Re-read the device list after something was plugged in or pulled out.
+
+    PortAudio enumerates devices when it initialises and then caches that
+    list. Unplug a headset and it keeps reporting a device that is no longer
+    there, and keeps resolving "the default" to it — so an assistant that
+    followed the default at startup goes deaf, and reopening the stream is not
+    enough to fix it because the answer it gets is stale.
+
+    Terminating and initialising again is the documented way to make it look
+    afresh. Any stream still open at that point is invalid, so callers close
+    theirs first.
+    """
+    try:
+        sd._terminate()
+        sd._initialize()
+    except Exception as exc:  # noqa: BLE001 — worst case the list stays stale
+        log.debug("could not reinitialise the audio backend: %s", exc)
+
+
 def _matches(device: dict, wanted: str) -> bool:
     return wanted.casefold() in str(device.get("name", "")).casefold()
 
