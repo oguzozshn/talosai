@@ -132,6 +132,12 @@ in the seconds after a reply, when Talos is still listening.
 - Ollama's tray app does not start the server on this machine; `ollama serve`
   has to be run by hand.
 
+## Using it
+
+[USING.md](USING.md) is the list of what it can do and what to say to get it —
+thirty-three skills, grouped, with example phrasings. You never name a skill;
+you say what you want.
+
 ## Changing it
 
 [HACKING.md](HACKING.md) covers where its reach is configured, how to change
