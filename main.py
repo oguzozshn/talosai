@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from talos.assistant import Assistant  # noqa: E402
 from talos.audio import Recorder  # noqa: E402
 from talos.config import load  # noqa: E402
+from talos.session import current as session  # noqa: E402
 
 log = logging.getLogger("talos")
 
@@ -142,8 +143,10 @@ def run_push_to_talk(assistant: Assistant, config) -> int:
     hotkey = resolve_hotkey(config.audio.hotkey)
     recorder = Recorder(config.audio)
     busy = threading.Lock()
+    keyboard_listener = None
 
-    print(f"Hold {config.audio.hotkey.upper()} to talk. Ctrl+C to quit.\n")
+    print(f"Hold {config.audio.hotkey.upper()} to talk. Ctrl+C to quit.")
+    print("Say start listening, while holding the key, to switch to the wake word.\n")
 
     def handle(audio) -> None:
         # Runs off the listener thread: a turn takes seconds, and blocking the
@@ -161,6 +164,11 @@ def run_push_to_talk(assistant: Assistant, config) -> int:
             log.exception("turn failed")
         finally:
             busy.release()
+            # Checked after the turn rather than during it: the skill that
+            # asks for the switch runs inside the turn, and stopping the
+            # listener underneath it would cut the reply off mid-sentence.
+            if session.switch_requested and keyboard_listener is not None:
+                keyboard_listener.stop()
 
     def on_press(key) -> None:
         if key == hotkey and not recorder.recording and not busy.locked():
@@ -175,10 +183,13 @@ def run_push_to_talk(assistant: Assistant, config) -> int:
         threading.Thread(target=handle, args=(audio,), daemon=True).start()
 
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+        keyboard_listener = listener
         try:
             listener.join()
         except KeyboardInterrupt:
-            pass
+            return 0
+    # Reached either because the key listener was stopped for a mode switch,
+    # or because it died. Either way the caller decides what happens next.
     return 0
 
 
@@ -227,7 +238,8 @@ def run_wake_word(assistant: Assistant, config) -> int:
             assistant, listener, name, permission, arguments
         )
     )
-    print(f"Say \"{config.wake.word}\" to wake me. Ctrl+C to quit.\n")
+    print(f"Say \"{config.wake.word}\" to wake me. Ctrl+C to quit.")
+    print("Say stop listening to switch to the hotkey.\n")
 
     try:
         for command, _audio in listener.listen():
@@ -248,6 +260,13 @@ def run_wake_word(assistant: Assistant, config) -> int:
                 print(f"  (still listening for {config.wake.continue_seconds:.0f}s)\n")
             else:
                 print()
+
+            # After the reply has been spoken, not during it: the skill that
+            # asks to stop listening runs inside the turn, and closing the
+            # stream there would cut off the sentence saying so.
+            if session.switch_requested:
+                listener.stop()
+                break
     except KeyboardInterrupt:
         listener.stop()
         print()
@@ -303,9 +322,20 @@ def main() -> int:
         return 0
     if args.text:
         return run_text_mode(assistant)
-    if args.wake:
-        return run_wake_word(assistant, config)
-    return run_push_to_talk(assistant, config)
+
+    # The voice modes can hand over to each other while running, so which one
+    # is active lives in the session rather than in this function.
+    session.mode = "wake" if args.wake else "hotkey"
+    while True:
+        session.switch_requested = False
+        if session.mode == "wake":
+            run_wake_word(assistant, config)
+        else:
+            run_push_to_talk(assistant, config)
+
+        if not session.switch_requested:
+            return 0
+        print(f"\n--- switching to {session.mode} ---\n")
 
 
 if __name__ == "__main__":

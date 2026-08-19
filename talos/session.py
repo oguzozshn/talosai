@@ -20,8 +20,22 @@ class Session:
     # transcription is asked for per-word confidences it otherwise skips.
     coaching: bool = False
 
+    # How Talos is being spoken to: "wake" listens continuously, "hotkey"
+    # only records while a key is held. Changing this asks the running mode
+    # to stop so the other can start — the loops check it between turns.
+    mode: str = "hotkey"
+
+    # Set when the mode should change. The loops own their own exits, so
+    # they are asked rather than interrupted.
+    switch_requested: bool = False
+
+    def switch_to(self, mode: str) -> None:
+        self.mode = mode
+        self.switch_requested = True
+
     def reset(self) -> None:
         self.coaching = False
+        self.switch_requested = False
 
 
 # Deliberately a module-level singleton rather than something passed around.
