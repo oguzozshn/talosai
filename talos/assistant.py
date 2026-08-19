@@ -159,11 +159,17 @@ class Assistant:
         """
         try:
             yield from sentences
-        except ConnectionError:
-            yield "I can't reach the model right now. Is Ollama running?"
         except Exception as exc:  # noqa: BLE001 — one bad turn is not a crash
-            log.exception("turn failed")
-            yield f"Something went wrong while I was thinking: {type(exc).__name__}."
+            # Not `except ConnectionError`. The client raises httpx.ConnectError,
+            # which descends from Exception and not from the builtin, so the
+            # first version of this caught nothing and printed a full traceback
+            # for the most ordinary failure there is.
+            if "Connect" in type(exc).__name__ or isinstance(exc, (ConnectionError, OSError)):
+                log.warning("model unreachable: %s", type(exc).__name__)
+                yield "I can't reach the model right now. Is Ollama running?"
+            else:
+                log.exception("turn failed")
+                yield f"Something went wrong while I was thinking: {type(exc).__name__}."
 
     def _speak(self, sentences, timings: Timings, started: float) -> None:
         """Consume the reply stream, printing it and speaking it."""

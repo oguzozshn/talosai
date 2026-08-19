@@ -167,3 +167,15 @@ length_scale = 1.0
 noise_w = 0.8
 noise_scale = 0.667
 sentence_silence = 0.15
+
+[usage]
+# Record which application has focus, so "what did I spend today on" can be
+# answered. Only the executable name is stored — never window titles, which
+# are documents, messages and search queries.
+#
+# It only counts while Talos is running, and only while you are actually at
+# the machine: ninety seconds without a keypress and the interval is dropped.
+# Every answer built on this says what period it really covers.
+#
+# Set to false and data/usage.db stops being written to entirely.
+track = true

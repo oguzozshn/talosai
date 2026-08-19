@@ -121,6 +121,14 @@ class SkillsConfig:
 
 
 @dataclass(frozen=True)
+class UsageConfig:
+    # Record which application has focus, so it can be asked about later.
+    # Only the executable name is stored, never window titles, and only while
+    # Talos is running. Turn it off and nothing is written at all.
+    track: bool = True
+
+
+@dataclass(frozen=True)
 class TodoistConfig:
     # Leave empty here. The token belongs in config/local.toml, which is
     # git-ignored, or in TODOIST_API_TOKEN. Nothing writes it — Talos only
@@ -149,6 +157,7 @@ class Config:
     tts: TtsConfig = field(default_factory=TtsConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
     todoist: TodoistConfig = field(default_factory=TodoistConfig)
+    usage: UsageConfig = field(default_factory=UsageConfig)
 
     @property
     def character(self) -> str:
@@ -209,4 +218,5 @@ def load() -> Config:
         tts=_section(data, "tts", TtsConfig),
         skills=_section(data, "skills", SkillsConfig),
         todoist=_section(data, "todoist", TodoistConfig),
+        usage=_section(data, "usage", UsageConfig),
     )

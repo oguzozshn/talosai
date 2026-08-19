@@ -286,6 +286,15 @@ def main() -> int:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     config = load()
+
+    # Started before the assistant, so the minute spent warming models is
+    # itself recorded. It only counts while Talos runs, and every answer
+    # built on it says so.
+    if config.usage.track:
+        from talos.usage import Sampler
+
+        Sampler().start()
+
     assistant = start_up(config, mute=args.mute)
 
     if args.say:
