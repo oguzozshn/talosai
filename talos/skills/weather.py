@@ -20,6 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from talos.skills._net import ipv4_only
 from talos.skills.base import Permission, skill
 
 log = logging.getLogger(__name__)
@@ -49,14 +50,24 @@ CONDITIONS = {
 }
 
 
+# Coordinates do not move. Looking the same town up twice is a network call
+# for an answer we already had.
+_PLACES: dict[str, tuple[float, float, str]] = {}
+
+
 def _get(url: str, params: dict) -> object:
     full = f"{url}?{urllib.parse.urlencode(params)}"
     request = urllib.request.Request(full, headers={"User-Agent": "talos"})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return json.loads(response.read())
+    with ipv4_only():
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            return json.loads(response.read())
 
 
 def _find_place(name: str) -> tuple[float, float, str] | None:
+    cached = _PLACES.get(name.casefold())
+    if cached:
+        return cached
+
     data = _get(GEOCODE, {"name": name, "count": 1, "language": "en"})
     results = (data or {}).get("results") or []
     if not results:
@@ -64,7 +75,13 @@ def _find_place(name: str) -> tuple[float, float, str] | None:
     place = results[0]
     label = place.get("name", name)
     country = place.get("country")
-    return place["latitude"], place["longitude"], f"{label}, {country}" if country else label
+    found = (
+        place["latitude"],
+        place["longitude"],
+        f"{label}, {country}" if country else label,
+    )
+    _PLACES[name.casefold()] = found
+    return found
 
 
 def _describe(code: object) -> str:

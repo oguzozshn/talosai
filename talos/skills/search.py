@@ -18,6 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from talos.skills._net import ipv4_only
 from talos.skills.base import Permission, skill
 
 log = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ def web_search(query: str, limit: int = 3) -> str:
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with ipv4_only(), urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             page = response.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
         return f"The search engine returned an error ({exc.code})."

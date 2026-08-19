@@ -26,6 +26,7 @@ import urllib.request
 from datetime import date, datetime
 
 from talos.config import load
+from talos.skills._net import ipv4_only
 from talos.skills.base import Permission, skill
 
 log = logging.getLogger(__name__)
@@ -64,8 +65,9 @@ def _call(path: str, method: str = "GET", body: dict | None = None) -> object:
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        raw = response.read()
+    with ipv4_only():
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            raw = response.read()
     return json.loads(raw) if raw else None
 
 
