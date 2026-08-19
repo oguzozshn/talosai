@@ -1,0 +1,3 @@
+# Talos test dependencies. The suite needs no microphone, GPU or model —
+# everything here is pure logic, and it runs in under a second.
+pytest>=8,<10

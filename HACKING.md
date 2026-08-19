@@ -180,6 +180,23 @@ except (OutsideWorkspace, SecretFile) as exc:
 return f"{describe(target)} says..."  # path as the user would recognise it
 ```
 
+### Tests
+
+```
+run -m pytest tests -q
+```
+
+Seventy of them, under a second, no microphone or GPU or model involved. They
+cover the pure logic where the bugs actually were: wake word matching,
+sentence splitting and markdown stripping, the grader's echo filter, argument
+coercion and the sandbox.
+
+Every case came from something that went wrong. When you fix a bug, add the
+case that would have caught it — that is what stops it coming back, and it is
+the only reason this file is worth the space.
+
+Install with `pip install -r requirements-dev.txt`.
+
 ### Testing without talking
 
 ```
