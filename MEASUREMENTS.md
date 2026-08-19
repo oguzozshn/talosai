@@ -185,6 +185,34 @@ request, and prefilling them is what the first turn was paying for.
 A warm-up that does not resemble the request it is warming up for warms
 nothing.
 
+## What it costs to leave running
+
+Idle in wake-word mode: models loaded, listening, nothing being asked of it.
+
+| | |
+|---|---|
+| CPU | **3.7% of one core** — 0.2% of a 20-thread machine |
+| RAM | 921 MB Python, plus 168 MB for the Ollama service |
+| VRAM | **6716 MB of 8151** |
+| Startup | 15 s — 5 s to build components, 10 s to warm them |
+
+The VRAM splits about 1.1 GB for Whisper and 5.6 GB for the language model.
+Whisper is the part that cannot be released while listening, because it *is*
+the wake word.
+
+The steady 3.7% is voice activity detection running continuously on the CPU:
+every 32 ms, a chunk goes through Silero to decide whether it is speech. That
+is the price of not having a trained wake-word model, and it is a good deal —
+a fifth of a percent of the machine to avoid a training pipeline.
+
+Idle costs nothing on the GPU. The card is *occupied* rather than *busy*: the
+weights sit there and nothing computes until you speak, which matters because
+occupied is what stops you playing something, and `release_gpu` is the answer.
+
+Disk, separately, is about 21 GB: 13 GB of Ollama models, 3.1 GB of virtual
+environment — 2 GB of that being the bundled CUDA libraries — 2.8 GB of Ollama
+itself, and 1.6 GB of Whisper and speaker-recognition weights.
+
 ## Not yet measured
 
 - End-of-speech detection (phase 2)
