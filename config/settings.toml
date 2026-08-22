@@ -174,6 +174,21 @@ noise_w = 0.8
 noise_scale = 0.667
 sentence_silence = 0.15
 
+[profile]
+# Talos proposes facts about you; you promote them. It never writes
+# config/profile.md itself, because that file is in the prompt of every single
+# reply: a wrong fact there is invisible and permanent, and a profile that
+# grows on its own gets slower and worse with nothing to show for it.
+#
+# Review what it has noticed with:  run main.py --profile
+learn = true
+# Hard bound on the profile body, in characters. Over this, promoting a new
+# fact means dropping an old one. That is deliberate — the hard part of a
+# profile that learns is not adding to it, it is deciding what to lose.
+max_chars = 1400
+# Exchanges read per extraction call, sized against llm.context.
+batch = 10
+
 [usage]
 # Record which application has focus, so "what did I spend today on" can be
 # answered. Only the executable name is stored — never window titles, which

@@ -121,6 +121,39 @@ Run it for a working day with `--verbose` logging to a file, then read the log
 and write what you find into `MEASUREMENTS.md`. This is the highest-value
 measurement left and it needs no code to start.
 
+### 6. Tune what the profile pass proposes
+
+Built. `run main.py --profile` scans the log, proposes facts about the owner
+with the quote each came from, and promotes only what a person accepts. Talos
+never writes `config/profile.md`. Rejections are permanent; the body has a
+character budget and filling it forces a swap.
+
+The first real run over 136 exchanges settled the design argument by itself. It
+proposed **"The owner's name is Dilara"**, quoted from a misheard sentence
+about a friend. The fact reads perfectly; only the quote gives it away. Had
+that been written automatically, the assistant would have believed it in every
+future reply with nothing anywhere reporting a problem.
+
+What is left is precision, and there is now evidence to tune against. Of 29
+candidates, roughly half were worth keeping. The rest fell into two groups the
+instruction already forbids and the model produced anyway:
+
+- **One-off measurements.** "The owner uses Visual Studio for 2 hours 20
+  minutes, Chrome for 1 hour 35 minutes" — a skill's output from one afternoon,
+  reported as a durable fact.
+- **Practice-session artefacts.** Half a dozen candidates about English tense
+  and article mistakes, all quoted from `start_english_practice` corrections.
+  They are real and they are quotable, which is why the guard let them through.
+  A conversation in practice mode is probably not a source of profile facts at
+  all, and `session.coaching` already marks which exchanges those were — but
+  the log does not record it, so that would have to be stored first.
+
+Worth measuring before tuning: what fraction of accepted facts came from the
+owner's own words versus the assistant's. Everything genuinely good in the
+first run — the girlfriend's name, the BACnet bug, the wish to stop holding
+F9 — came from the owner. Almost everything junk came from the assistant's
+side of the exchange.
+
 ## How to work here
 
 - **Commit messages and all repo prose in English.** Small, frequent commits,

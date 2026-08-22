@@ -150,6 +150,19 @@ class Memory:
         ).fetchall()
         return [self._row_to_exchange(r) for r in rows]
 
+    def after(self, exchange_id: int, limit: int = 50) -> list[tuple[int, Exchange]]:
+        """Exchanges newer than an id, oldest first, with their ids.
+
+        For passes that walk the log forward and need to remember where they
+        stopped — unlike recent(), which answers "what just happened" and
+        would re-read the same tail every time.
+        """
+        rows = self.db.execute(
+            "SELECT * FROM exchanges WHERE id > ? ORDER BY id ASC LIMIT ?",
+            (exchange_id, limit),
+        ).fetchall()
+        return [(int(r["id"]), self._row_to_exchange(r)) for r in rows]
+
     def search_text(self, needle: str, limit: int = 5) -> list[Exchange]:
         """Plain substring search. Always available, and for a specific word
         it beats similarity — someone asking about "BACnet" wants the exchange
