@@ -126,6 +126,48 @@ No skill involved; the date is in every prompt.
 
 ---
 
+## What it learns about you
+
+`config/profile.md` is the one thing Talos knows about you without going
+looking. It is in the prompt of every single reply, which is what makes it
+useful and what makes it expensive: every character there competes with the
+conversation for room.
+
+Talos never writes it. It reads the conversation log, proposes facts it thinks
+are worth keeping, and stops there. You decide which ones are true.
+
+```bash
+run main.py --profile
+```
+
+It scans the exchanges it has not seen before, then walks what it found one at
+a time, showing the fact and the exact words it came from:
+
+```
+  The owner has a girlfriend named Sila
+    from [22 August] "I'll remember that you have a girlfriend named Sila."
+    [a]ccept  [r]eject  [s]kip  [q]uit:
+```
+
+Accepting appends it under `## Learned` in the profile, below whatever you
+wrote by hand — so what a person put there and what a model proposed stay
+telling apart. Rejecting is permanent: that fact is never proposed again.
+Skipping leaves it for next time.
+
+**Read the quote, not the fact.** The first real run proposed "The owner's name
+is Dilara", quoted from a misheard sentence about a friend. The fact reads
+perfectly. Only the quote gives it away. That is the entire reason this is a
+review step instead of something Talos does on its own — a wrong line in the
+profile is in every future reply, and nothing about it looks broken.
+
+When the profile is full, promoting a new fact means dropping an old one, and
+it will ask you which. The budget is `[profile] max_chars`, and it is a real
+constraint rather than a tidiness rule: this is the text that gets prefilled
+before every answer.
+
+Nothing is proposed during a conversation and nothing is written by voice. The
+scan only runs when you run that command.
+
 ## What it will not do
 
 - Edit a file git does not track, or one it cannot undo

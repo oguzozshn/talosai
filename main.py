@@ -81,6 +81,96 @@ def show_memory(erase: bool = False) -> int:
     return 0
 
 
+def review_profile(config) -> int:
+    """Propose facts about the owner, and let the owner decide.
+
+    Talos never writes config/profile.md. It goes into every prompt unchanged,
+    so a wrong fact there is invisible and permanent, and a profile that grows
+    on its own gets slower and worse with nothing to show for it. Extraction
+    proposes; this is where a person promotes.
+
+    Deliberately does not build an Assistant: this needs Ollama and SQLite,
+    not Whisper and Piper.
+    """
+    from talos.memory import Memory
+    from talos.profile import Candidates, drop, extract, learned, promote, size
+
+    budget = config.profile.max_chars
+    memory = Memory()
+    candidates = Candidates(memory)
+
+    print(f"Profile: {size()} of {budget} characters, in the prompt of every reply.")
+    print(f"Log: {memory.count()} exchange(s), scanned to {candidates.scanned_to}.")
+    print()
+
+    kept = extract(memory, candidates, config.llm, config.profile, report=print)
+    print()
+    print(f"{kept} new candidate(s).")
+    print()
+
+    pending = candidates.pending()
+    if not pending:
+        print("Nothing to review.")
+        return 0
+
+    for candidate in pending:
+        print(f"  {candidate.fact}")
+        print(f'    from [{candidate.proposed:%d %B}] "{candidate.quote}"')
+        try:
+            answer = input("    [a]ccept  [r]eject  [s]kip  [q]uit: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+
+        if answer.startswith("q"):
+            break
+        if answer.startswith("r"):
+            candidates.reject(candidate.id)
+            print("    rejected — it will not be proposed again.")
+            print()
+            continue
+        if not answer.startswith("a"):
+            print("    skipped.")
+            print()
+            continue
+
+        if promote(candidate.fact, budget):
+            candidates.accept(candidate.id)
+            print(f"    added. Profile is now {size()} of {budget} characters.")
+            print()
+            continue
+
+        # Over budget, which is the interesting case: the hard part of a
+        # profile that learns is not adding, it is choosing what to lose.
+        print(f"    Would not fit — the profile is {size()} of {budget} characters.")
+        existing = learned()
+        if not existing:
+            print("    Nothing promoted to drop. Trim config/profile.md by hand.")
+            print()
+            continue
+        for number, fact in enumerate(existing, start=1):
+            print(f"      {number}. {fact}")
+        try:
+            choice = input("    Drop which, to make room? [number, enter to skip]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+        if not choice.isdigit() or not 1 <= int(choice) <= len(existing):
+            print("    skipped.")
+            print()
+            continue
+        drop(existing[int(choice) - 1])
+        if promote(candidate.fact, budget):
+            candidates.accept(candidate.id)
+            print(f"    swapped. Profile is now {size()} of {budget} characters.")
+        else:
+            print("    still would not fit.")
+        print()
+
+    print(f"Profile: {size()} of {budget} characters.")
+    return 0
+
+
 def describe_action(skill_name: str, arguments: dict) -> str:
     """What is about to happen, in one line, for a confirmation prompt."""
     if not arguments:
@@ -316,6 +406,11 @@ def main() -> int:
     parser.add_argument("--mute", action="store_true", help="run the chain but do not play audio")
     parser.add_argument("--devices", action="store_true", help="list audio devices and exit")
     parser.add_argument("--memory", action="store_true", help="show what is remembered and exit")
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="review facts Talos proposes about you, and promote the true ones",
+    )
     parser.add_argument("--forget", action="store_true", help="erase everything remembered")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
@@ -345,6 +440,9 @@ def main() -> int:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     config = load()
+
+    if args.profile:
+        return review_profile(config)
 
     # Started before the assistant, so the minute spent warming models is
     # itself recorded. It only counts while Talos runs, and every answer

@@ -122,6 +122,23 @@ class SkillsConfig:
 
 
 @dataclass(frozen=True)
+class ProfileConfig:
+    """Learning facts about the owner — proposed by Talos, promoted by hand."""
+
+    # Whether the extraction pass runs at all. It only ever runs when asked,
+    # from `run main.py --profile`; nothing happens during a conversation.
+    learn: bool = True
+    # Hard bound on the profile body, in characters. The body is 828 today and
+    # every character of it is in the prompt of every single reply, competing
+    # with the conversation for room. Over this, promoting a new fact means
+    # dropping an old one — which is the point, because the hard part of a
+    # profile that learns is not adding, it is pruning.
+    max_chars: int = 1400
+    # Exchanges per extraction call, sized against llm.context.
+    batch: int = 10
+
+
+@dataclass(frozen=True)
 class UsageConfig:
     # Record which application has focus, so it can be asked about later.
     # Only the executable name is stored, never window titles, and only while
@@ -159,6 +176,7 @@ class Config:
     skills: SkillsConfig = field(default_factory=SkillsConfig)
     todoist: TodoistConfig = field(default_factory=TodoistConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
+    profile: ProfileConfig = field(default_factory=ProfileConfig)
 
     @property
     def character(self) -> str:
@@ -220,4 +238,5 @@ def load() -> Config:
         skills=_section(data, "skills", SkillsConfig),
         todoist=_section(data, "todoist", TodoistConfig),
         usage=_section(data, "usage", UsageConfig),
+        profile=_section(data, "profile", ProfileConfig),
     )
