@@ -89,6 +89,18 @@ class SpeechToText:
     def vocabulary(self) -> str:
         return self._vocabulary
 
+    @property
+    def _language(self) -> str | None:
+        """The pinned language, or None to let the decoder detect one.
+
+        faster-whisper reads None as "work it out" and rejects "" outright,
+        and a TOML file has no null to write — so the translation has to
+        happen somewhere. It happens here, once, because doing it at each
+        call site is how warm-up ended up passing "" straight through and
+        failing on startup while everything after it worked.
+        """
+        return self._config.language or None
+
     def warm_up(self) -> None:
         """Pay the kernel-compilation cost now instead of on the first sentence.
 
@@ -99,7 +111,7 @@ class SpeechToText:
         """
         silence = np.zeros(self._sample_rate, dtype=np.float32)
         try:
-            segments, _ = self._model.transcribe(silence, language=self._config.language)
+            segments, _ = self._model.transcribe(silence, language=self._language)
             # faster-whisper is lazy; the work only happens on consumption.
             for _ in segments:
                 pass
@@ -132,7 +144,10 @@ class SpeechToText:
 
     def _options(self, hotwords: str | None) -> dict:
         options = {
-            "language": self._config.language,
+            # Pinning the wrong language is worse than not pinning at all:
+            # forced to English, clean Turkish came back as a half-lost
+            # English paraphrase rather than as anything resembling an error.
+            "language": self._language,
             "beam_size": self._config.beam_size,
             "vad_filter": self._config.vad_filter,
         }

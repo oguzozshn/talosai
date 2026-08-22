@@ -83,6 +83,12 @@ settle_seconds = 0.25
 model = "large-v3-turbo"
 # Whisper is stronger in English than in any other language, and pinning it
 # rather than auto-detecting saves a detection pass on every utterance.
+#
+# But pin the language you actually speak. Forced to English, a clean Turkish
+# sentence does not fail loudly — it comes back as a half-lost English
+# paraphrase, and the assistant answers that paraphrase. Leave this empty to
+# detect the language per utterance instead, which costs a pass but survives
+# switching languages mid-conversation.
 language = "en"
 # Words to expect. Whisper is reliable on ordinary English and unreliable on
 # jargon — it heard "serialization" as "sterilization" — and a decoder told to

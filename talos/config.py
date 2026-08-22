@@ -81,6 +81,7 @@ class WakeConfig:
 @dataclass(frozen=True)
 class SttConfig:
     model: str = "large-v3-turbo"
+    # A language code pins the decoder; empty lets it detect one per utterance.
     language: str = "en"
     beam_size: int = 1
     vad_filter: bool = True
