@@ -147,6 +147,24 @@ No skill involved; the date is in every prompt.
 what it heard and why it did not act. Usually the wake word was misheard, or
 the follow-up window had closed.
 
+**It says "(nothing heard)" or "(nothing recognised)".** Run with
+`--diagnostic`. The first means the audio never passed the gate, the second
+means it passed and the decoder returned nothing anyway — and the flag prints
+the numbers that tell them apart: how long the recording was, how loud, which
+device it came from, and which threshold it fell under.
+
+Audio that produced no reply is written to `data/unrecognised.wav`, one file,
+overwritten each time. Listen to it. Three separate faults print those same
+two lines — a microphone capturing a room nobody is in, a Bluetooth headset
+handing over audio no decoder can read, and `[stt] language` pinned to a
+language you are not speaking — and the recording is what distinguishes them.
+The last one is the quietest: forced to English, clean Turkish comes back as a
+confident, fluent, half-wrong English sentence, and nothing reports an error.
+
+**It answers something you did not say.** Same flag. `--diagnostic` prints
+what it heard before it prints what it did, along with every skill it called,
+the arguments it called them with, and what came back.
+
 **It wakes when nobody spoke to it.** Raise `speech_threshold`, or set
 `continue_seconds = 0` so the name is needed every time.
 

@@ -143,6 +143,20 @@ class Brain:
         # which tool a model reaches for is the thing worth measuring about it,
         # and it is otherwise only visible in the log.
         self.last_tool_calls: list[tuple[str, dict]] = []
+        # What each of those calls actually returned, same order as above.
+        # Together the two are the whole story of what a turn did — for
+        # --diagnostic to print directly instead of it only living in the log.
+        self.last_tool_results: list[str] = []
+        # Reasoning content, when the model emits any. Empty whenever `think`
+        # is off, which is the default — see ROADMAP.md phase 0 for why
+        # thinking stays off (12.6s against 0.45s, none of it spoken).
+        self.last_thinking: str = ""
+        # How many model <-> tool round trips the last reply took. 1 is a
+        # plain answer; more means at least one skill call, which is where
+        # the ~9s of extra latency documented in ROADMAP.md actually goes.
+        # Counted separately from the coaching correction call below, which
+        # is not a round trip in this sense — it never sees the tools.
+        self.last_rounds: int = 0
         # Which mode the history was built under. Changing mode has to clear
         # it: the model copies the shape of the last few turns far more
         # readily than it re-reads its instructions, so leaving corrections in
@@ -278,6 +292,9 @@ class Brain:
             messages.insert(-1, {"role": "system", "content": note})
         spoken: list[str] = []
         self.last_tool_calls = []
+        self.last_tool_results = []
+        self.last_thinking = ""
+        self.last_rounds = 0
 
         for round_number in range(self._max_rounds + 1):
             # Past the ceiling, offer no tools at all. Telling a looping model
@@ -306,6 +323,9 @@ class Brain:
 
             for chunk in stream:
                 message = chunk.get("message", {})
+                thinking = message.get("thinking")
+                if thinking:
+                    self.last_thinking += thinking
                 for call in message.get("tool_calls") or []:
                     normalised = _normalise_tool_call(call)
                     if normalised:
@@ -354,7 +374,10 @@ class Brain:
             for name, arguments in tool_calls:
                 log.info("calling skill %s(%s)", name, arguments)
                 result = self._registry.execute(name, arguments, self._confirm)
+                self.last_tool_results.append(result)
                 messages.append({"role": "tool", "name": name, "content": result})
+
+        self.last_rounds = round_number + 1
 
         # After the conversation, never inside it. The reply is already being
         # spoken by the time this runs, so the second call costs nothing the

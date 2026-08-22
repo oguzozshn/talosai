@@ -23,6 +23,13 @@ class DeviceNotFound(ValueError):
     pass
 
 
+# The last ambiguous match warned about, so it is not repeated verbatim.
+_warned_about: tuple | None = None
+
+# The last pinned device reported missing, for the same reason.
+_warned_missing: tuple | None = None
+
+
 def refresh() -> None:
     """Re-read the device list after something was plugged in or pulled out.
 
@@ -54,6 +61,8 @@ def resolve(wanted: str | int | None, *, kind: str) -> int | None:
         wanted: index, name fragment, or None/"" for the default
         kind: "input" or "output"
     """
+    global _warned_about
+
     if wanted is None or wanted == "":
         return None
 
@@ -77,8 +86,41 @@ def resolve(wanted: str | int | None, *, kind: str) -> int | None:
         )
     if len(candidates) > 1:
         names = ", ".join(f"{i}: {devices[i]['name']}" for i in candidates[:4])
-        log.warning("'%s' matches several %s devices, using the first — %s", wanted, kind, names)
+        # Once per ambiguity, not once per recording. resolve() runs again on
+        # every key press, and a warning that repeats on every key press is
+        # one you stop reading — including the turn where it mattered.
+        seen = (str(wanted), kind, tuple(candidates))
+        if seen != _warned_about:
+            log.warning(
+                "'%s' matches several %s devices, using the first — %s", wanted, kind, names
+            )
+            _warned_about = seen
     return candidates[0]
+
+
+def resolve_or_default(wanted: str | int | None, *, kind: str) -> int | None:
+    """The pinned device, or the system default when it is not there.
+
+    A pinned headset is not a fixture. It is off, or flat, or it has gone
+    to a phone, and none of that is a reason for the assistant to refuse to
+    start or to die on the next key press — which is what a DeviceNotFound
+    out of Recorder.start() does, on the listener thread, where nothing
+    catches it.
+
+    So it falls back. But quietly falling back to a different microphone is
+    the exact failure this module was written to prevent, so it says so —
+    once per device that goes missing, because the alternative is a warning
+    on every recording.
+    """
+    global _warned_missing
+
+    try:
+        return resolve(wanted, kind=kind)
+    except DeviceNotFound as exc:
+        if _warned_missing != (wanted, kind):
+            log.warning("%s — falling back to the system default %s", exc, kind)
+            _warned_missing = (wanted, kind)
+        return None
 
 
 def describe(index: int | None, kind: str) -> str:

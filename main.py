@@ -4,10 +4,13 @@
     run main.py --text           type instead of speaking
     run main.py --say "merhaba"  one exchange, then exit
     run main.py --mute           run the whole chain but stay silent
+    run main.py --diagnostic     also print what was heard, which skills ran,
+                                  and what they returned, after every turn
 
 --mute exists so the chain can be exercised without filling the room with
 speech, which matters more than it sounds when the machine is next to someone
-asleep.
+asleep. --diagnostic is the equivalent for "why did it do that" — it does not
+touch logging.basicConfig, so it works whether or not --verbose is also on.
 """
 
 from __future__ import annotations
@@ -26,6 +29,11 @@ from talos.config import load  # noqa: E402
 from talos.session import current as session  # noqa: E402
 
 log = logging.getLogger("talos")
+
+# Where --diagnostic leaves audio that produced no reply. One file,
+# overwritten each time: it exists to be re-run through the decoder, not to
+# accumulate.
+UNRECOGNISED_AUDIO = Path(__file__).resolve().parent / "data" / "unrecognised.wav"
 
 
 def resolve_hotkey(name: str):
@@ -103,11 +111,11 @@ def start_up(config, mute: bool) -> Assistant:
     print("Warming up — this is the cold-start cost, paid once so the first")
     print("sentence does not pay it.\n")
 
-    from talos.devices import describe, resolve
+    from talos.devices import describe, resolve_or_default
 
     assistant = Assistant(config, mute=mute, confirm=console_confirm)
-    print(f"  mic       {describe(resolve(config.audio.input_device, kind='input'), 'input')}")
-    print(f"  speaker   {describe(resolve(config.audio.output_device, kind='output'), 'output')}")
+    print(f"  mic       {describe(resolve_or_default(config.audio.input_device, kind='input'), 'input')}")
+    print(f"  speaker   {describe(resolve_or_default(config.audio.output_device, kind='output'), 'output')}")
     print(f"  speech    {config.stt.model} on {assistant.ears.device}")
     print(f"  reasoning {config.llm.model}")
     if assistant.voice is not None:
@@ -123,7 +131,7 @@ def start_up(config, mute: bool) -> Assistant:
     return assistant
 
 
-def run_text_mode(assistant: Assistant) -> int:
+def run_text_mode(assistant: Assistant, diagnostic: bool = False) -> int:
     print("Type to talk. Empty line or Ctrl+C to quit.\n")
     while True:
         try:
@@ -134,10 +142,12 @@ def run_text_mode(assistant: Assistant) -> int:
         if not text:
             return 0
         turn = assistant.respond_to_text(text)
+        if diagnostic:
+            print(turn.diagnostic())
         print(f"  [{turn.timings.summary()}]\n")
 
 
-def run_push_to_talk(assistant: Assistant, config) -> int:
+def run_push_to_talk(assistant: Assistant, config, diagnostic: bool = False) -> int:
     from pynput import keyboard
 
     hotkey = resolve_hotkey(config.audio.hotkey)
@@ -148,17 +158,40 @@ def run_push_to_talk(assistant: Assistant, config) -> int:
     print(f"Hold {config.audio.hotkey.upper()} to talk. Ctrl+C to quit.")
     print("Say start listening, while holding the key, to switch to the wake word.\n")
 
+    def dead_end(audio, reason: str) -> None:
+        """A turn that produced no reply, and everything known about why.
+
+        These two paths are where --diagnostic is needed most and where it
+        said nothing at all: both return before a Turn exists, so
+        Turn.diagnostic() never runs. A muted microphone, a headset handing
+        over unusable audio, and a decoder pinned to the wrong language are
+        three different faults that all print the same one line here.
+        """
+        print(f"  {reason}")
+        if diagnostic:
+            print(f"  audio      {recorder.describe(audio)}")
+            saved = recorder.save(audio, UNRECOGNISED_AUDIO)
+            if saved is not None:
+                print(f"  saved      {saved}")
+        print()
+
     def handle(audio) -> None:
         # Runs off the listener thread: a turn takes seconds, and blocking the
         # listener would swallow the next key press.
         try:
             if not recorder.is_speech(audio):
-                print("  (nothing heard)\n")
+                dead_end(audio, "(nothing heard)")
                 return
             turn = assistant.respond_to_audio(audio)
             if turn is None:
-                print("  (nothing recognised)\n")
+                # Past the gate, so the audio was loud enough and long enough
+                # and Whisper still returned nothing. That is a decode problem
+                # rather than a level problem, and the saved file is the only
+                # way to tell which.
+                dead_end(audio, "(nothing recognised)")
                 return
+            if diagnostic:
+                print(turn.diagnostic())
             print(f"  [{turn.timings.summary()}]\n")
         except Exception:  # noqa: BLE001 — one bad turn must not kill the loop
             log.exception("turn failed")
@@ -227,7 +260,7 @@ def spoken_confirm(assistant: Assistant, listener, skill_name: str, permission, 
     return False
 
 
-def run_wake_word(assistant: Assistant, config) -> int:
+def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int:
     from talos.wake import WakeListener
 
     listener = WakeListener(config.audio, config.wake, assistant.ears.transcribe)
@@ -253,6 +286,8 @@ def run_wake_word(assistant: Assistant, config) -> int:
                 continue
             print(f"you> {command}")
             turn = assistant.respond_to_text(command)
+            if diagnostic:
+                print(turn.diagnostic())
             print(f"  [{turn.timings.summary()}]")
             # Say so, because the window is invisible otherwise and the whole
             # point of it is that you can just keep talking.
@@ -283,6 +318,11 @@ def main() -> int:
     parser.add_argument("--memory", action="store_true", help="show what is remembered and exit")
     parser.add_argument("--forget", action="store_true", help="erase everything remembered")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--diagnostic",
+        action="store_true",
+        help="print what was heard, which skills ran, and what they returned",
+    )
     args = parser.parse_args()
 
     if args.devices:
@@ -318,10 +358,12 @@ def main() -> int:
 
     if args.say:
         turn = assistant.respond_to_text(args.say)
+        if args.diagnostic:
+            print(turn.diagnostic())
         print(f"  [{turn.timings.summary()}]")
         return 0
     if args.text:
-        return run_text_mode(assistant)
+        return run_text_mode(assistant, diagnostic=args.diagnostic)
 
     # The voice modes can hand over to each other while running, so which one
     # is active lives in the session rather than in this function.
@@ -329,9 +371,9 @@ def main() -> int:
     while True:
         session.switch_requested = False
         if session.mode == "wake":
-            run_wake_word(assistant, config)
+            run_wake_word(assistant, config, diagnostic=args.diagnostic)
         else:
-            run_push_to_talk(assistant, config)
+            run_push_to_talk(assistant, config, diagnostic=args.diagnostic)
 
         if not session.switch_requested:
             return 0

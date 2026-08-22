@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -36,20 +36,64 @@ class Timings:
     transcribe: float = 0.0
     first_audio: float | None = None
     total: float = 0.0
+    # 1 for a plain answer; more means at least one skill call happened. Only
+    # shown when it says something — see Brain.last_rounds for why it costs
+    # what it costs.
+    rounds: int = 1
 
     def summary(self) -> str:
         first = f"{self.first_audio:.2f}s" if self.first_audio is not None else "—"
+        extra = f"  rounds {self.rounds}" if self.rounds > 1 else ""
         return (
             f"transcribe {self.transcribe:.2f}s  "
             f"first audio {first}  "
-            f"total {self.total:.2f}s"
+            f"total {self.total:.2f}s{extra}"
         )
+
+
+@dataclass
+class ToolCall:
+    """One skill invocation, and what it returned."""
+
+    name: str
+    permission: str
+    arguments: dict
+    result: str
 
 
 @dataclass
 class Turn:
     heard: str
     timings: Timings
+    # Empty unless this turn was in practice mode and something was hard to
+    # make out. See talos/coach.py.
+    note: str = ""
+    # Empty whenever `think` is off in settings.toml, which is the default.
+    thinking: str = ""
+    tool_calls: list[ToolCall] = field(default_factory=list)
+
+    def diagnostic(self) -> str:
+        """Everything a plain run does not show: heard, thought, called, got back.
+
+        Kept separate from timings.summary() rather than folded into it —
+        most turns should stay quiet on the terminal, and this is for when
+        something needs explaining, not for every turn. --diagnostic decides
+        whether it gets printed at all.
+        """
+        lines = [f'  heard      "{self.heard}"']
+        if self.note:
+            lines.append(f"  note       {self.note}")
+        if self.thinking:
+            lines.append(f"  thinking   {self.thinking.strip()}")
+        if not self.tool_calls:
+            lines.append("  skills     none")
+        else:
+            for call in self.tool_calls:
+                args = ", ".join(f"{k}={v!r}" for k, v in call.arguments.items())
+                result = call.result if len(call.result) <= 200 else call.result[:197] + "..."
+                lines.append(f"  skill      {call.name}({args})  [{call.permission}]")
+                lines.append(f"             -> {result}")
+        return "\n".join(lines)
 
 
 class Assistant:
@@ -117,13 +161,35 @@ class Assistant:
         if self.voice is not None:
             self.voice.warm_up()
 
+    def _tool_calls(self) -> list[ToolCall]:
+        """The last turn's skill calls, paired with what they returned.
+
+        Read from the brain right after a reply is fully drained — that is
+        the point at which Brain.last_tool_calls / last_tool_results are
+        settled for the turn that just ran.
+        """
+        calls = []
+        for (name, arguments), result in zip(
+            self.brain.last_tool_calls, self.brain.last_tool_results
+        ):
+            skill = self.skills.get(name) if self.skills else None
+            permission = skill.permission.value if skill else "?"
+            calls.append(ToolCall(name, permission, arguments, result))
+        return calls
+
     def respond_to_text(self, text: str) -> Turn:
         """Run a turn from text, skipping transcription. Used for testing."""
         started = time.perf_counter()
         timings = Timings()
         self._speak(self.brain.reply(text), timings, started)
         timings.total = time.perf_counter() - started
-        return Turn(heard=text, timings=timings)
+        timings.rounds = self.brain.last_rounds or 1
+        return Turn(
+            heard=text,
+            timings=timings,
+            thinking=self.brain.last_thinking,
+            tool_calls=self._tool_calls(),
+        )
 
     def respond_to_audio(self, audio: np.ndarray) -> Turn | None:
         """Run a full turn. Returns None when nothing intelligible was said."""
@@ -146,7 +212,14 @@ class Assistant:
 
         self._speak(self.brain.reply(heard, note=note), timings, started)
         timings.total = time.perf_counter() - started
-        return Turn(heard=heard, timings=timings)
+        timings.rounds = self.brain.last_rounds or 1
+        return Turn(
+            heard=heard,
+            timings=timings,
+            note=note,
+            thinking=self.brain.last_thinking,
+            tool_calls=self._tool_calls(),
+        )
 
     def _guarded(self, sentences):
         """Yield a reply, turning a failure into something sayable.

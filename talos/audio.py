@@ -14,7 +14,7 @@ import numpy as np
 import sounddevice as sd
 
 from talos.config import AudioConfig
-from talos.devices import refresh, resolve
+from talos.devices import refresh, resolve_or_default
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class Recorder:
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._stream: sd.InputStream | None = None
-        self.device = resolve(config.input_device, kind="input")
+        self.device = resolve_or_default(config.input_device, kind="input")
 
     @property
     def recording(self) -> bool:
@@ -50,7 +50,7 @@ class Recorder:
         # headset the default pointed at may have been unplugged since, and
         # PortAudio has to be asked again before it will admit that.
         refresh()
-        self.device = resolve(self._config.input_device, kind="input")
+        self.device = resolve_or_default(self._config.input_device, kind="input")
         with self._lock:
             self._frames.clear()
         self._stream = sd.InputStream(
@@ -79,6 +79,53 @@ class Recorder:
         if not frames:
             return np.zeros(0, dtype=np.float32)
         return np.concatenate(frames, axis=0).flatten()
+
+    def describe(self, audio: np.ndarray) -> str:
+        """Why is_speech() decided what it decided, in one line.
+
+        The gate is the quietest place a turn can die: it prints "nothing
+        heard" and throws the audio away, so the two numbers that would
+        explain it — how loud, how long — are gone before anyone can look. A
+        microphone that is muted, and a microphone that is capturing a room
+        nobody is speaking in, produce the same message and very different
+        numbers.
+        """
+        seconds = audio.size / self._config.sample_rate
+        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        rms = float(np.sqrt(np.mean(np.square(audio)))) if audio.size else 0.0
+
+        if seconds < self._config.min_seconds:
+            verdict = f"shorter than min_seconds ({self._config.min_seconds}s)"
+        elif peak < self._config.silence_threshold:
+            verdict = f"peak under silence_threshold ({self._config.silence_threshold})"
+        else:
+            verdict = "loud enough and long enough"
+
+        where = "system default" if self.device is None else f"device {self.device}"
+        return f"{seconds:.1f}s  peak {peak:.4f}  rms {rms:.4f}  {where}  — {verdict}"
+
+    def save(self, audio: np.ndarray, path) -> object | None:
+        """Write the audio a turn could not use, so it can be listened to.
+
+        Numbers narrow it down; the recording settles it. Deciding between a
+        bad microphone and a bad decode took re-running the same six seconds
+        through Whisper three ways, which is only possible if those six
+        seconds still exist. One file, overwritten each time — a diagnostic
+        that fills the disk is one you turn off.
+
+        Returns the path written, or None if it could not be.
+        """
+        if not audio.size:
+            return None
+        try:
+            import soundfile as sf
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+            sf.write(path, audio, self._config.sample_rate)
+            return path
+        except Exception as exc:  # noqa: BLE001 — a failed diagnostic is not a failed turn
+            log.debug("could not save the unrecognised audio: %s", exc)
+            return None
 
     def is_speech(self, audio: np.ndarray) -> bool:
         """Cheap gate before the expensive part of the chain.
