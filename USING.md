@@ -78,6 +78,19 @@ Reads the plan the personal assistant project already writes.
 Notes are a file. Memory is every exchange, searchable, in `data/memory.db` —
 it never leaves the machine, and `run main.py --forget` erases it.
 
+**"Remember X" writes a note.** Not because the model decides to: the request
+is matched before the model answers, and the note is taken either way. Asked to
+remember something it used to say "I'll remember that" and record nothing,
+which sounds exactly like the thing working — so nobody checks, and the fact is
+gone by morning. Turkish works too, in either word order.
+
+Asking whether something is remembered is still a search rather than a note:
+"do you remember what I said" looks through the log.
+
+Anything you tell it to remember also becomes a candidate for your profile on
+the next `--profile` run, so a fact worth having in every reply only has to be
+said once.
+
 ### The screen
 
 > "What's on my screen?"

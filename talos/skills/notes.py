@@ -19,10 +19,15 @@ NOTES = ROOT / "data" / "notes.md"
 # not worth having.
 @skill(Permission.OPEN)
 def take_note(text: str) -> str:
-    """Write down a note for later.
+    """Write something down so it is not lost.
+
+    Use this whenever the owner says to remember something, note something,
+    write it down, or keep it in mind. It is the only thing that actually
+    records what they say — without it, saying "I'll remember that" is a
+    promise nothing keeps.
 
     Args:
-        text: What to remember
+        text: What to record, in the owner's own words
     """
     text = text.strip()
     if not text:
@@ -32,7 +37,10 @@ def take_note(text: str) -> str:
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     with NOTES.open("a", encoding="utf-8") as handle:
         handle.write(f"- [{stamp}] {text}\n")
-    return f"Noted: {text}"
+    # Says where it went, not just that something happened. The model speaks
+    # this result back, and "noted" is what it said before while nothing had
+    # been written anywhere.
+    return f"Written down in your notes: {text}"
 
 
 @skill(Permission.OPEN)
@@ -56,3 +64,102 @@ def read_notes(limit: int = 10, contains: str = "") -> str:
 
     recent = lines[-limit:][::-1]
     return f"{len(lines)} note(s). Most recent:\n" + "\n".join(recent)
+
+
+# Told to remember something, the model answered "I'll remember that" and
+# called nothing — every time, in three different phrasings of the character
+# definition and after the skill's own description was rewritten to say this
+# is what it is for. That is the case NEXT.md means by a behaviour code should
+# enforce rather than a prompt should ask for, so the request is matched here
+# and the skill is run whether the model would have thought of it or not.
+_LEADING = (
+    "remember that",
+    "remember",
+    "make a note that",
+    "make a note",
+    "take a note that",
+    "take a note",
+    "note that",
+    "write down that",
+    "write down",
+    "jot down",
+    "keep in mind that",
+    "keep in mind",
+    "don't forget that",
+    "dont forget that",
+    "don't forget",
+    "dont forget",
+    "do not forget",
+    "hatırla",
+    "hatirla",
+    "not al",
+    "unutma",
+    "aklında tut",
+    "aklinda tut",
+)
+
+# Turkish puts the imperative last: "kız arkadaşımın adı Dilara, bunu hatırla".
+_TRAILING = (
+    "bunu hatırla",
+    "bunu hatirla",
+    "bunu unutma",
+    "hatırla",
+    "hatirla",
+    "unutma",
+    "bunu not al",
+    "not al",
+    "aklında tut",
+    "aklinda tut",
+)
+
+# Asking whether something is remembered is a search, not a note. These are
+# the phrasings that begin with a trigger word and mean the opposite of it.
+_ASKING = (
+    "do you remember",
+    "did you remember",
+    "can you remember",
+    "would you remember",
+    "hatırlıyor musun",
+    "hatirliyor musun",
+)
+
+_FILLER = ("please ", "hey ", "ok ", "okay ", "talos, ", "talos ", "um ", "uh ")
+
+
+_PUNCTUATION = " 	:,-.!?;—"
+
+
+def _meat(text: str) -> str | None:
+    """What is left once the trigger and its punctuation are taken off."""
+    return text.strip(_PUNCTUATION).strip() or None
+
+
+def note_request(text: str) -> str | None:
+    """What to write down, if this was a request to write something down.
+
+    None for anything else, including questions about what was remembered —
+    "do you remember what I said" is a search, and answering it with a new
+    note would be absurd.
+    """
+    cleaned = text.strip()
+    if not cleaned or cleaned.endswith("?"):
+        return None
+
+    lowered = cleaned.lower()
+    for filler in _FILLER:
+        while lowered.startswith(filler):
+            cleaned, lowered = cleaned[len(filler):], lowered[len(filler):]
+
+    if any(lowered.startswith(phrase) for phrase in _ASKING):
+        return None
+
+    for phrase in _LEADING:
+        if lowered.startswith(phrase):
+            # "remember" on its own is not a note, it is half a sentence.
+            return _meat(cleaned[len(phrase):])
+
+    for phrase in _TRAILING:
+        if lowered.endswith(phrase):
+            return _meat(cleaned[: len(cleaned) - len(phrase)])
+
+    return None

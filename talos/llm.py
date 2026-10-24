@@ -274,6 +274,50 @@ class Brain:
             return None
         return self._registry.schemas()
 
+    def _record_if_asked(self, prompt: str, messages: list[dict]) -> None:
+        """Write the note when told to remember something, whatever the model thinks.
+
+        Told "remember my girlfriend's name is Dilara", the model answered
+        "I'll remember that" and called nothing — before and after take_note's
+        description was rewritten to say this is exactly what it is for, and
+        after three attempts at saying so in the character definition. The
+        promise is the worst possible failure here: it sounds like the thing
+        working, so nobody checks, and the fact is gone by morning.
+
+        The result is then handed to the model as a tool call it made itself,
+        so what it says out loud is built on what was actually written.
+        """
+        if self._registry is None:
+            return
+        try:
+            from talos.skills.notes import note_request
+        except ImportError:
+            # Skills are files, and a deleted file takes its capability with
+            # it. That has to include this.
+            return
+        if self._registry.get("take_note") is None:
+            return
+
+        what = note_request(prompt)
+        if what is None:
+            return
+
+        result = self._registry.execute("take_note", {"text": what}, self._confirm)
+        log.info("recorded on request: %s", what)
+
+        messages.append(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"function": {"name": "take_note", "arguments": {"text": what}}}
+                ],
+            }
+        )
+        messages.append({"role": "tool", "name": "take_note", "content": result})
+        self.last_tool_calls.append(("take_note", {"text": what}))
+        self.last_tool_results.append(result)
+
     def reply(self, prompt: str, note: str = "") -> Iterator[str]:
         """Stream the answer sentence by sentence, calling skills as needed.
 
@@ -295,6 +339,7 @@ class Brain:
         self.last_tool_results = []
         self.last_thinking = ""
         self.last_rounds = 0
+        self._record_if_asked(prompt, messages)
 
         for round_number in range(self._max_rounds + 1):
             # Past the ceiling, offer no tools at all. Telling a looping model

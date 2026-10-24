@@ -30,3 +30,10 @@ commits over one large one.
 How he likes to be answered: get to the point. He asks direct questions and
 wants direct answers. If you are guessing, say you are guessing. He would rather
 hear "I don't know" than a confident invention, and he checks.
+
+## Learned
+- The owner has a girlfriend named Dilara.
+- The owner is working on the BACnet serialization bug.
+- The owner mentioned a bug with signed integer sterilization in the BACnet project.
+- The owner plans to fix the BACnet bug on Friday.
+- The owner wants to improve their English.
