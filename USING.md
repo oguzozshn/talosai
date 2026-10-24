@@ -1,6 +1,6 @@
 # Talking to Talos
 
-Twenty-three skills. You never name them — you say what you want and the model
+Twenty-five skills. You never name them — you say what you want and the model
 picks. The phrases below are examples, not commands; anything that means the
 same thing works.
 
@@ -25,6 +25,49 @@ and leaves the hotkey, **"start listening"** goes back.
 
 ---
 
+## From your phone: Telegram
+
+Write to Talos, or send it a voice message, and it answers in writing. It runs
+the same skills as by voice, so "what's on my plate" and "send me the
+Requirements PDF from Dersler" both work. The computer has to be on, and Talos
+running: the bot is only a way in, the thinking still happens here.
+
+Setting it up, once:
+
+1. In Telegram, talk to **@BotFather**, send `/newbot`, and follow it. It
+   gives you a token — treat it like a password.
+2. Put it in `config/local.toml`, which is never committed:
+
+   ```toml
+   [telegram]
+   token = "the token BotFather gave you"
+   ```
+
+3. Start Talos and write anything to your bot. Nothing comes back, and the
+   Talos window prints the chat id the message came from. Add it:
+
+   ```toml
+   allowed_chat_ids = [123456789]
+   ```
+
+   and start Talos again. Only those chats are ever answered; anyone else who
+   finds the bot gets silence.
+
+Telegram starts with every mode on its own. To run it without the microphone
+at all — on a machine nobody is sitting at:
+
+```
+run main.py --telegram
+```
+
+Anything that changes something or sends something away asks first, with Yes
+and No buttons; no answer within two minutes is a no. Sending a file always
+asks, because it leaves the machine. Files that look like credentials are
+never sent, and the Bot API's limit is 50 MB.
+
+A voice message is transcribed here, and what was heard is written back first,
+so a mishearing shows before the answer to it.
+
 ## What it can do
 
 ### Your projects
@@ -37,6 +80,7 @@ and leaves the hotkey, **"start listening"** goes back.
 ### Your files
 
 > "Where is my Dersler folder?"
+> "Send me the Requirements PDF from Dersler."
 > "Which PDFs are in Dersler?"
 > "Find the README in RatchetSync."
 > "Open the Dersler folder."

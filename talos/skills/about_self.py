@@ -29,6 +29,7 @@ AREAS = {
     "todoist": ("Todoist", "what is due, adding tasks, marking them done"),
     "weather": ("weather", "current conditions anywhere"),
     "search": ("the web", "looking up anything current"),
+    "send": ("sending files", "sending a file to your phone over Telegram"),
     "screen": ("your screen", "reading the text on either monitor"),
     "usage": ("your time", "which applications you have been in and for how long"),
     "gpu": ("the graphics card", "how much is in use, and letting go of it"),
@@ -40,8 +41,8 @@ AREAS = {
 HOW_IT_WORKS = (
     "I run entirely on this machine. Whisper turns your speech into text on the "
     "graphics card, a model called qwen3 does the thinking, and Piper says the "
-    "answer out loud. Nothing goes over the network except three skills you can "
-    "name — weather, Todoist and web search. "
+    "answer out loud. Nothing goes over the network except what you can name: "
+    "weather, Todoist, web search, and Telegram when it is set up. "
     "I hear you because I transcribe everything and check whether my name is in "
     "the first two words, so you can say the name and the question in one breath. "
     "I remember our conversations in a database here, and I can only read the "

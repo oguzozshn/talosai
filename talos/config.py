@@ -169,6 +169,20 @@ class TtsConfig:
 
 
 @dataclass(frozen=True)
+class TelegramConfig:
+    # Leave empty here, like the Todoist token: it goes in config/local.toml
+    # or TALOS_TELEGRAM_TOKEN. With no token, Telegram is simply off.
+    token: str = ""
+    # The only chats Talos answers. Everyone else is ignored without a reply,
+    # and their chat id is printed so the owner can add their own.
+    allowed_chat_ids: tuple[int, ...] = ()
+    # How long a yes/no button waits before it counts as no.
+    confirm_seconds: int = 120
+    # The Bot API refuses uploads over 50 MB.
+    max_file_mb: int = 50
+
+
+@dataclass(frozen=True)
 class Config:
     assistant: AssistantConfig = field(default_factory=AssistantConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
@@ -180,6 +194,7 @@ class Config:
     todoist: TodoistConfig = field(default_factory=TodoistConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
     profile: ProfileConfig = field(default_factory=ProfileConfig)
+    telegram: TelegramConfig = field(default_factory=TelegramConfig)
 
     @property
     def character(self) -> str:
@@ -242,4 +257,5 @@ def load() -> Config:
         todoist=_section(data, "todoist", TodoistConfig),
         usage=_section(data, "usage", UsageConfig),
         profile=_section(data, "profile", ProfileConfig),
+        telegram=_section(data, "telegram", TelegramConfig),
     )

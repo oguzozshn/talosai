@@ -10,18 +10,21 @@ The hosts that happen to be IPv4-only were fine, which is why this went
 unnoticed until a dual-stack one arrived.
 
 `ipv4_only()` filters the address list for the duration of a call. It patches
-a module-level function, so it is not thread-safe — acceptable here because
-skills run one at a time inside a turn, and worth knowing before that stops
-being true.
+a module-level function, so the patch is counted: Telegram polls on its own
+thread while skills make calls on another, and the first one to finish must
+not restore the original under the other.
 """
 
 from __future__ import annotations
 
 import contextlib
 import socket
+import threading
 from collections.abc import Iterator
 
 _resolve = socket.getaddrinfo
+_lock = threading.Lock()
+_users = 0
 
 
 def _ipv4(*args, **kwargs):
@@ -35,8 +38,14 @@ def _ipv4(*args, **kwargs):
 @contextlib.contextmanager
 def ipv4_only() -> Iterator[None]:
     """Skip IPv6 for calls made inside this block."""
-    socket.getaddrinfo = _ipv4
+    global _users
+    with _lock:
+        _users += 1
+        socket.getaddrinfo = _ipv4
     try:
         yield
     finally:
-        socket.getaddrinfo = _resolve
+        with _lock:
+            _users -= 1
+            if _users == 0:
+                socket.getaddrinfo = _resolve

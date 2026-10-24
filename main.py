@@ -2,6 +2,7 @@
 
     run main.py                  hold the hotkey, speak, release
     run main.py --text           type instead of speaking
+    run main.py --telegram       answer only on Telegram, no microphone
     run main.py --say "merhaba"  one exchange, then exit
     run main.py --mute           run the whole chain but stay silent
     run main.py --diagnostic     also print what was heard, which skills ran,
@@ -430,10 +431,23 @@ def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int
     return 0
 
 
+def run_telegram_only() -> int:
+    """Nothing to do here but wait: the bot answers on its own thread."""
+    print("Answering on Telegram only. Ctrl+C to quit.\n")
+    try:
+        threading.Event().wait()
+    except KeyboardInterrupt:
+        print()
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wake", action="store_true", help="listen for the wake word")
     parser.add_argument("--text", action="store_true", help="type instead of speaking")
+    parser.add_argument(
+        "--telegram", action="store_true", help="answer only on Telegram, with no microphone"
+    )
     parser.add_argument("--say", help="run one exchange with this text, then exit")
     parser.add_argument("--mute", action="store_true", help="run the chain but do not play audio")
     parser.add_argument("--devices", action="store_true", help="list audio devices and exit")
@@ -491,6 +505,18 @@ def main() -> int:
         Sampler().start()
 
     assistant = start_up(config, mute=args.mute)
+
+    # Alongside whichever mode runs, not instead of it: the phone and the
+    # microphone are two ways into the same assistant.
+    if not args.say:
+        from talos import telegram
+
+        server = telegram.start(config.telegram, assistant, describe_action, config.audio.sample_rate)
+        if args.telegram:
+            if server is None:
+                print("Telegram is not set up. USING.md says how.")
+                return 1
+            return run_telegram_only()
 
     if args.say:
         turn = assistant.respond_to_text(args.say)

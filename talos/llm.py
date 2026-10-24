@@ -269,6 +269,10 @@ class Brain:
     def set_confirm(self, confirm: ConfirmFn) -> None:
         self._confirm = confirm
 
+    @property
+    def confirm(self) -> ConfirmFn | None:
+        return self._confirm
+
     def _tools(self) -> list[dict] | None:
         if self._registry is None or not len(self._registry):
             return None

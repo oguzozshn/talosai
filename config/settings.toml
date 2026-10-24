@@ -178,6 +178,16 @@ max_rounds = 3
 # pushed to GitHub the next time anyone runs git add.
 token = ""
 
+[telegram]
+# Talk to Talos from your phone. Off until a bot token is set — put it in
+# config/local.toml, never here, for the same reason as the Todoist token.
+# USING.md has the three steps.
+token = ""
+# Chats allowed to talk to it. Message the bot once, and the id of the chat
+# that wrote is printed in the Talos window; add it here or in local.toml.
+allowed_chat_ids = []
+confirm_seconds = 120
+
 [tts]
 engine = "piper"
 # Which voice file in models/piper to use. A name fragment is enough. Empty

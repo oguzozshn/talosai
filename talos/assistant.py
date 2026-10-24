@@ -9,6 +9,7 @@ components.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -71,6 +72,9 @@ class Turn:
     # Empty whenever `think` is off in settings.toml, which is the default.
     thinking: str = ""
     tool_calls: list[ToolCall] = field(default_factory=list)
+    # What was said back, in full. Spoken turns print and speak it as it
+    # streams; a Telegram turn sends this.
+    reply: str = ""
 
     def diagnostic(self) -> str:
         """Everything a plain run does not show: heard, thought, called, got back.
@@ -106,6 +110,11 @@ class Assistant:
     ) -> None:
         self.config = config
         self.mute = mute
+        # One turn at a time. Telegram answers on its own thread while the
+        # microphone loop runs on another, and the brain keeps one
+        # conversation: two turns interleaved would mix their skill calls and
+        # their history.
+        self._turn = threading.Lock()
 
         # No confirm callback means skills above OPEN refuse rather than run.
         # That is the right default: an assistant with no way to ask should not
@@ -178,21 +187,58 @@ class Assistant:
         return calls
 
     def respond_to_text(self, text: str) -> Turn:
-        """Run a turn from text, skipping transcription. Used for testing."""
-        started = time.perf_counter()
-        timings = Timings()
-        self._speak(self.brain.reply(text), timings, started)
-        timings.total = time.perf_counter() - started
-        timings.rounds = self.brain.last_rounds or 1
-        return Turn(
-            heard=text,
-            timings=timings,
-            thinking=self.brain.last_thinking,
-            tool_calls=self._tool_calls(),
-        )
+        """Run a turn from text, skipping transcription, and say the answer."""
+        with self._turn:
+            started = time.perf_counter()
+            timings = Timings()
+            reply = self._speak(self.brain.reply(text), timings, started)
+            timings.total = time.perf_counter() - started
+            timings.rounds = self.brain.last_rounds or 1
+            return Turn(
+                heard=text,
+                timings=timings,
+                thinking=self.brain.last_thinking,
+                tool_calls=self._tool_calls(),
+                reply=reply,
+            )
+
+    def respond_in_writing(self, text: str, confirm: ConfirmFn) -> Turn:
+        """Run a turn whose answer is written back rather than spoken.
+
+        For Telegram: the person is not in the room, so the answer is not
+        read out to it, and permission is asked where they are — through
+        `confirm` — for this turn only.
+        """
+        with self._turn:
+            started = time.perf_counter()
+            timings = Timings()
+            previous = self.brain.confirm
+            self.brain.set_confirm(confirm)
+            try:
+                sentences = list(self._guarded(self.brain.reply(text)))
+            finally:
+                self.brain.set_confirm(previous)
+            timings.total = time.perf_counter() - started
+            timings.rounds = self.brain.last_rounds or 1
+            return Turn(
+                heard=text,
+                timings=timings,
+                thinking=self.brain.last_thinking,
+                tool_calls=self._tool_calls(),
+                reply=" ".join(sentences),
+            )
+
+    def hear(self, audio: np.ndarray) -> str:
+        """Transcribe audio that did not come through the microphone, such as a voice message."""
+        with self._turn:
+            return self.ears.transcribe(audio)
 
     def respond_to_audio(self, audio: np.ndarray) -> Turn | None:
         """Run a full turn. Returns None when nothing intelligible was said."""
+        with self._turn:
+            return self._respond_to_audio(audio)
+
+    def _respond_to_audio(self, audio: np.ndarray) -> Turn | None:
         started = time.perf_counter()
         timings = Timings()
 
@@ -210,7 +256,7 @@ class Assistant:
         if not heard:
             return None
 
-        self._speak(self.brain.reply(heard, note=note), timings, started)
+        reply = self._speak(self.brain.reply(heard, note=note), timings, started)
         timings.total = time.perf_counter() - started
         timings.rounds = self.brain.last_rounds or 1
         return Turn(
@@ -219,6 +265,7 @@ class Assistant:
             note=note,
             thinking=self.brain.last_thinking,
             tool_calls=self._tool_calls(),
+            reply=reply,
         )
 
     def _guarded(self, sentences):
@@ -244,10 +291,11 @@ class Assistant:
                 log.exception("turn failed")
                 yield f"Something went wrong while I was thinking: {type(exc).__name__}."
 
-    def _speak(self, sentences, timings: Timings, started: float) -> None:
-        """Consume the reply stream, printing it and speaking it."""
+    def _speak(self, sentences, timings: Timings, started: float) -> str:
+        """Consume the reply stream, printing it and speaking it. Returns what was said."""
         sentences = self._guarded(sentences)
         first_seen: float | None = None
+        said: list[str] = []
 
         def echo(stream):
             nonlocal first_seen
@@ -255,13 +303,14 @@ class Assistant:
                 if first_seen is None:
                     first_seen = time.perf_counter() - started
                 print(f"  {sentence}")
+                said.append(sentence)
                 yield sentence
 
         if self.voice is None:
             for _ in echo(sentences):
                 pass
             timings.first_audio = first_seen
-            return
+            return " ".join(said)
 
         # say_stream measures from when it is called, but the interesting
         # number is measured from the start of the turn.
@@ -269,3 +318,4 @@ class Assistant:
         offset = self.voice.say_stream(echo(sentences))
         if offset is not None:
             timings.first_audio = (speak_started - started) + offset
+        return " ".join(said)

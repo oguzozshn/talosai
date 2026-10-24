@@ -16,7 +16,7 @@ These are hard requirements, not preferences:
 
 1. **Everything runs locally**, with named exceptions. Speech, reasoning,
    memory and voice have no network path at all — no API keys, no accounts,
-   nothing to leak. Two skills do reach out, listed here so the claim stays
+   nothing to leak. These do reach out, listed here so the claim stays
    honest, and each can be deleted on its own:
 
    | Skill | What leaves the machine |
@@ -24,6 +24,7 @@ These are hard requirements, not preferences:
    | `talos/skills/todoist.py` | Task text, to Todoist. Needs a token. |
    | `talos/skills/search.py` | Your search query, to DuckDuckGo. No account. |
    | `talos/skills/weather.py` | A place name, to Open-Meteo. No account. |
+   | `talos/telegram.py`, `talos/skills/send.py` | What you write to the bot, its answers, and files you ask it to send, through Telegram. Off without a token. |
 
    Delete the file and the exception goes with it. Nothing else in Talos
    depends on either.
@@ -119,7 +120,7 @@ discovered from files and called by the model.
 | 0 — environment | Done. Numbers in [MEASUREMENTS.md](MEASUREMENTS.md) |
 | 1 — the chain | Done, push-to-talk. 0.93 s to first audio |
 | 2 — wake word | Done. No trained model — see below |
-| 3 — skills | Done: 23 skills, sandboxed, permission-tiered |
+| 3 — skills | Done: 25 skills, sandboxed, permission-tiered |
 | 4 — memory | Done: profile, recall, and bounded summarisation |
 | 5 — living with it | Partly: GPU release and mode switching, no autostart |
 
