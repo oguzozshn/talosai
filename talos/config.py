@@ -167,6 +167,8 @@ class TtsConfig:
     engine: str = "piper"
     # Name fragment of the voice file to use. Empty takes whatever is present.
     voice: str = ""
+    # The voice for sentences in Turkish. Empty reads everything in `voice`.
+    turkish_voice: str = "tr_TR"
     length_scale: float = 1.0
     noise_w: float = 0.8
     noise_scale: float = 0.667

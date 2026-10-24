@@ -221,6 +221,9 @@ engine = "piper"
 # picks whatever is there. Fetch more with:
 #   run scripts\fetch_piper.py --language en/en_US --voice en_US-ryan-high
 voice = "lessac"
+# Sentences in Turkish are read in this one instead — Talos answers in the
+# language it was spoken to in. Empty reads everything in the voice above.
+turkish_voice = "tr_TR"
 # Set these from whichever preset sounded best in scripts/tune_tts.py.
 # length_scale is the one that matters: below 1.0 is faster.
 length_scale = 1.0

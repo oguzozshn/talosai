@@ -410,7 +410,9 @@ def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int
                     assistant.voice.say(config.wake.acknowledgement)
                 continue
             print(f"you> {command}")
-            turn = assistant.respond_to_text(command)
+            # The listener transcribed the command, so Whisper's language for
+            # it is the last one it heard.
+            turn = assistant.respond_to_text(command, heard_as=assistant.ears.last_language)
             if diagnostic:
                 print(turn.diagnostic())
             print(f"  [{turn.timings.summary()}]")

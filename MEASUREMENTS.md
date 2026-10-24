@@ -342,6 +342,33 @@ condition is" case changed from "no skill" to `explain_term` to match, and is
 36/36 with the router. Its median was 1.74 s against 1.27 s before; the extra
 round trip on those cases is part of it, the rest not investigated.
 
+### Answering in the language spoken
+
+2026-10-24. Before: the character said English only, and eight Turkish
+questions asked twice got Turkish answers 14 times in 16 — in the English
+voice. The owner chose to have Talos follow the language spoken instead.
+
+Each turn is now told the language (Whisper's for speech, the words for text),
+Turkish sentences go to `tr_TR-dfki-medium`, and the filler said before a skill
+runs is in the same language. Eleven questions, eight Turkish, twice each:
+
+| | Language right | Skill right |
+|---|---|---|
+| Told the language only | 22/22 | 18/22 |
+| ... and to use skills as in English, *vize* explained | 22/22 | 20/22 |
+| ... and the day's question recognised before the model | 22/22 | 21/22 |
+
+The misses were all Turkish. "Bugün ne yapmam lazım?" was taken as a request
+for life advice ("make a coffee, then breakfast") 3 times in 3 whatever the
+instruction; "What do I need to do today?" called `my_day` 3 in 3. It is now
+matched like "remember X" and `my_day` runs before the model answers. "Vizeye
+kaç saat kaldı?" was read as a visa ("Cumhurbaşkanım...") until vize was
+explained, and still missed once in the last run.
+
+`compare_models.py` with the router, 36/36, median 2.00 s — measured against
+the owner's running Ollama with Talos also loaded, not the quiet server the
+earlier medians came from.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the

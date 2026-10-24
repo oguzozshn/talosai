@@ -14,6 +14,8 @@ due" and "I could not check" sound the same otherwise.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from datetime import date, timedelta
 
 from talos.skills import argos, planner, todoist
@@ -67,9 +69,33 @@ def overview(on: date, today: date) -> str:
     return "\n".join(parts)
 
 
+# "Bugün ne yapmam lazım" — the owner's first question of most days — was
+# answered three times out of three as a request for life advice ("make a
+# coffee, then breakfast"), never with my_day, whatever its description said.
+# So, like "remember X", it is recognised before the model answers.
+_DAY_REQUEST = re.compile(
+    r"\b(bugun|yarin)\b.*\b(ne yapmam|ne yapmaliyim|ne yapacagim|neler yapmam|"
+    r"ne var|neler var|planim|programim|isim var|islerim)"
+    r"|\bwhat do i (need|have) to do (today|tomorrow)\b",
+)
+
+
+def _plain(text: str) -> str:
+    text = text.casefold().replace("ı", "i")
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+
+
+def day_request(text: str) -> str | None:
+    """"today" or "tomorrow" if this asks what a day holds, else None."""
+    plain = _plain(text)
+    if not _DAY_REQUEST.search(plain):
+        return None
+    return "tomorrow" if re.search(r"\b(yarin|tomorrow)\b", plain) else "today"
+
+
 @skill(Permission.OPEN)
 def my_day(day: str = "today") -> str:
-    """Say what a day holds and what is next: weekly plan, study sessions, Argos and Todoist tasks. Use for "what's on my plate", "what's next", "what's due", "how does my week look".
+    """Say what a day holds and what is next: weekly plan, study sessions, Argos and Todoist tasks. Use for "what's on my plate", "what do I need to do today", "what's next", "what's due", "how does my week look".
 
     Args:
         day: today, tomorrow, a day name such as Friday, a date as YYYY-MM-DD, or week

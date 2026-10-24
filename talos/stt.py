@@ -35,6 +35,9 @@ class SpeechToText:
         self._sample_rate = sample_rate
         self._vocabulary = self._build_vocabulary(config, workspaces or [])
         self.device = "cpu"
+        # The language Whisper heard in the last transcription, such as "tr".
+        # Talos answers in it, so it is kept rather than thrown away.
+        self.last_language: str | None = None
 
         try:
             self._model = WhisperModel(
@@ -129,9 +132,10 @@ class SpeechToText:
         """
         from talos.coach import Word
 
-        segments, _ = self._model.transcribe(
+        segments, info = self._model.transcribe(
             audio, **self._options(hotwords), word_timestamps=True
         )
+        self.last_language = info.language
 
         text_parts: list[str] = []
         words: list[Word] = []
@@ -172,13 +176,14 @@ class SpeechToText:
         hotwords = options.get("hotwords")
 
         try:
-            segments, _ = self._model.transcribe(audio, **options)
+            segments, info = self._model.transcribe(audio, **options)
         except TypeError:
             # Older faster-whisper has no hotwords argument. initial_prompt is
             # weaker but conditions the decoder the same way.
             options.pop("hotwords", None)
             if hotwords:
                 options["initial_prompt"] = hotwords
-            segments, _ = self._model.transcribe(audio, **options)
+            segments, info = self._model.transcribe(audio, **options)
+        self.last_language = info.language
 
         return " ".join(segment.text.strip() for segment in segments).strip()

@@ -346,8 +346,9 @@ class Server:
 
         bot.typing(chat_id)
         voice = message.get("voice") or message.get("audio")
+        heard_as = None
         if voice:
-            text = self._transcribe(voice["file_id"])
+            text, heard_as = self._transcribe(voice["file_id"])
             if not text:
                 bot.send_text(chat_id, "I couldn't make out that voice message.")
                 return
@@ -361,7 +362,9 @@ class Server:
         bot._turn.chat = chat_id
         try:
             turn = self._assistant.respond_in_writing(
-                text, lambda name, permission, arguments: self._confirm(chat_id, name, arguments)
+                text,
+                lambda name, permission, arguments: self._confirm(chat_id, name, arguments),
+                heard_as=heard_as,
             )
         finally:
             bot._turn.chat = None
@@ -371,7 +374,8 @@ class Server:
     def _confirm(self, chat_id: int, name: str, arguments: dict) -> bool:
         return self._bot.ask(chat_id, f"May I run this?\n{self._describe(name, arguments)}")
 
-    def _transcribe(self, file_id: str) -> str:
+    def _transcribe(self, file_id: str) -> tuple[str, str | None]:
+        """The text of a voice message, and the language Whisper heard it in."""
         from faster_whisper import decode_audio
 
         data = self._bot.download(file_id)

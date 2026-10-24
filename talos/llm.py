@@ -19,6 +19,7 @@ import ollama
 from talos.config import AssistantConfig, LlmConfig
 from talos.coach import CONVERSATION, correction_for
 from talos.memory import Exchange, Memory, embed, load_profile
+from talos import language
 from talos.router import Router
 from talos.session import current as session
 from talos.skills import ConfirmFn, Registry
@@ -141,6 +142,8 @@ class Brain:
         # The skills offered to the model this turn, or None for all of them.
         # Chosen once per request, from the request: see talos/router.py.
         self.last_offered: list[str] | None = None
+        # The language the current turn is answered in. See reply().
+        self._turn_language = language.ENGLISH
         self._history: list[dict[str, str]] = []
         # A running précis of what fell out of the window. Kept per session:
         # anything older than that is in the database and reachable by recall.
@@ -258,6 +261,19 @@ class Brain:
         "list_projects": "Let me look.",
         "recent_work": "Let me check your recent work.",
     }
+    # The same, for a turn spoken in Turkish: an English "one moment" before
+    # a Turkish answer switches voice twice in two sentences.
+    _ACKNOWLEDGEMENTS_TR = {
+        "recall": "Ne konuştuğumuza bakayım.",
+        "last_conversations": "Ne konuştuğumuza bakayım.",
+        "read_notes": "Notlarına bakayım.",
+        "take_note": "Not alıyorum.",
+        "find_file": "Hemen bakıyorum.",
+        "read_file": "Okuyayım.",
+        "project_status": "Projeye bakayım.",
+        "list_projects": "Bakayım.",
+        "recent_work": "Son çalışmalarına bakayım.",
+    }
 
     def _acknowledge(self, tool_calls: list[tuple[str, dict]]) -> str:
         """Something to say while a skill runs.
@@ -270,6 +286,8 @@ class Brain:
         if not self._config.acknowledge_skills or not tool_calls:
             return ""
         name = tool_calls[0][0]
+        if self._turn_language == language.TURKISH:
+            return self._ACKNOWLEDGEMENTS_TR.get(name, "Bir saniye.")
         return self._ACKNOWLEDGEMENTS.get(name, "One moment.")
 
     def set_confirm(self, confirm: ConfirmFn) -> None:
@@ -306,31 +324,41 @@ class Brain:
         except ImportError:
             # Skills are files, and a deleted file takes its capability with
             # it. That has to include this.
-            return
-        if self._registry.get("take_note") is None:
-            return
+            note_request = None
+        if note_request and self._registry.get("take_note") is not None:
+            what = note_request(prompt)
+            if what is not None:
+                self._precall("take_note", {"text": what}, messages)
+                log.info("recorded on request: %s", what)
+                return
 
-        what = note_request(prompt)
-        if what is None:
+        try:
+            from talos.skills.day import day_request
+        except ImportError:
             return
+        if self._registry.get("my_day") is not None:
+            day = day_request(prompt)
+            if day is not None:
+                self._precall("my_day", {"day": day}, messages)
 
-        result = self._registry.execute("take_note", {"text": what}, self._confirm)
-        log.info("recorded on request: %s", what)
+    def _precall(self, name: str, arguments: dict, messages: list[dict]) -> None:
+        """Run a skill before the model answers, and hand it over as its own call.
 
+        The model then speaks from the result as if it had asked for it.
+        """
+        result = self._registry.execute(name, arguments, self._confirm)
         messages.append(
             {
                 "role": "assistant",
                 "content": "",
-                "tool_calls": [
-                    {"function": {"name": "take_note", "arguments": {"text": what}}}
-                ],
+                "tool_calls": [{"function": {"name": name, "arguments": arguments}}],
             }
         )
-        messages.append({"role": "tool", "name": "take_note", "content": result})
-        self.last_tool_calls.append(("take_note", {"text": what}))
+        messages.append({"role": "tool", "name": name, "content": result})
+        self.last_tool_calls.append((name, arguments))
         self.last_tool_results.append(result)
 
-    def reply(self, prompt: str, note: str = "") -> Iterator[str]:
+    def reply(self, prompt: str, note: str = "", heard_as: str | None = None) -> Iterator[str]:
         """Stream the answer sentence by sentence, calling skills as needed.
 
         `note` is context about this turn rather than about the conversation —
@@ -346,6 +374,23 @@ class Brain:
         messages = self._messages(prompt)
         if note:
             messages.insert(-1, {"role": "system", "content": note})
+        # Said every turn, next to the question rather than only in the
+        # character: the model follows the language of the last few turns of
+        # history more readily than an instruction at the top.
+        self._turn_language = language.resolve(heard_as, prompt)
+        spoken_in = language.NAMES[self._turn_language]
+        instruction = f"The owner spoke {spoken_in}. Reply in {spoken_in}."
+        if self._turn_language == language.TURKISH:
+            # Asked in Turkish, the model reached for skills far less: "bugün
+            # ne yapmam lazım" named my_day in its answer instead of calling
+            # it. Every skill is described in English, and a Turkish question
+            # seemed not to match them.
+            instruction += (
+                " Call skills exactly as you would if the same question had been "
+                "asked in English; only the reply is in Turkish. In this owner's "
+                "studies, vize means midterm exam and final means final exam."
+            )
+        messages.insert(-1, {"role": "system", "content": instruction})
         spoken: list[str] = []
         self.last_tool_calls = []
         self.last_tool_results = []

@@ -204,12 +204,15 @@ class Assistant:
             calls.append(ToolCall(name, permission, arguments, result))
         return calls
 
-    def respond_to_text(self, text: str) -> Turn:
-        """Run a turn from text, skipping transcription, and say the answer."""
+    def respond_to_text(self, text: str, heard_as: str | None = None) -> Turn:
+        """Run a turn from text, skipping transcription, and say the answer.
+
+        `heard_as` is the language Whisper heard, when the text was spoken.
+        """
         with self._turn:
             started = time.perf_counter()
             timings = Timings()
-            reply = self._speak(self.brain.reply(text), timings, started)
+            reply = self._speak(self.brain.reply(text, heard_as=heard_as), timings, started)
             timings.total = time.perf_counter() - started
             timings.rounds = self.brain.last_rounds or 1
             return Turn(
@@ -221,7 +224,7 @@ class Assistant:
                 reply=reply,
             )
 
-    def respond_in_writing(self, text: str, confirm: ConfirmFn) -> Turn:
+    def respond_in_writing(self, text: str, confirm: ConfirmFn, heard_as: str | None = None) -> Turn:
         """Run a turn whose answer is written back rather than spoken.
 
         For Telegram: the person is not in the room, so the answer is not
@@ -234,7 +237,7 @@ class Assistant:
             previous = self.brain.confirm
             self.brain.set_confirm(confirm)
             try:
-                sentences = list(self._guarded(self.brain.reply(text)))
+                sentences = list(self._guarded(self.brain.reply(text, heard_as=heard_as)))
             finally:
                 self.brain.set_confirm(previous)
             timings.total = time.perf_counter() - started
@@ -265,10 +268,13 @@ class Assistant:
                 with hold():
                     self.voice.say(text)
 
-    def hear(self, audio: np.ndarray) -> str:
-        """Transcribe audio that did not come through the microphone, such as a voice message."""
+    def hear(self, audio: np.ndarray) -> tuple[str, str | None]:
+        """Transcribe audio that did not come through the microphone, such as a voice message.
+
+        Returns the text and the language Whisper heard it in.
+        """
         with self._turn:
-            return self.ears.transcribe(audio)
+            return self.ears.transcribe(audio), self.ears.last_language
 
     def respond_to_audio(self, audio: np.ndarray) -> Turn | None:
         """Run a full turn. Returns None when nothing intelligible was said."""
@@ -293,7 +299,9 @@ class Assistant:
         if not heard:
             return None
 
-        reply = self._speak(self.brain.reply(heard, note=note), timings, started)
+        reply = self._speak(
+            self.brain.reply(heard, note=note, heard_as=self.ears.last_language), timings, started
+        )
         timings.total = time.perf_counter() - started
         timings.rounds = self.brain.last_rounds or 1
         return Turn(

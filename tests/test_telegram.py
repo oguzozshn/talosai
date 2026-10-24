@@ -52,7 +52,7 @@ class FakeAssistant:
         self.reply = reply
         self.asked: list[str] = []
 
-    def respond_in_writing(self, text, confirm):
+    def respond_in_writing(self, text, confirm, heard_as=None):
         self.asked.append(text)
         return FakeTurn(self.reply)
 

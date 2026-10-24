@@ -4,6 +4,20 @@ Twenty-nine skills. You never name them — you say what you want and the model
 picks. The phrases below are examples, not commands; anything that means the
 same thing works.
 
+## Turkish or English
+
+Speak either. Talos answers in the language you used, and reads Turkish in
+Piper's Turkish voice (`tr_TR-dfki-medium`) and English in the English one —
+chosen per sentence, so a Turkish answer with an English file name in it is
+still read as Turkish. Whisper says which language it heard; a typed or
+Telegram message is judged from its words.
+
+Turkish is the weaker of the two: there is one Turkish voice against many
+English ones, and the model writes stiffer Turkish. It also reaches for its
+skills less readily when asked in Turkish, so each Turkish turn is told to use
+them exactly as it would in English, and "bugün ne yapmam lazım" — which it
+took for a request for life advice — is recognised before the model answers.
+
 ## Starting it
 
 ```
