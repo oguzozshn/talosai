@@ -18,6 +18,22 @@ skills less readily when asked in Turkish, so each Turkish turn is told to use
 them exactly as it would in English, and "bugün ne yapmam lazım" — which it
 took for a request for life advice — is recognised before the model answers.
 
+## Cutting it off
+
+Talk over an answer to stop it:
+
+- **"Talos"**, **"stop"**, **"dur"**, **"enough"**, **"yeter"** — it stops and
+  listens; say the next thing without the name.
+- **"Talos, what time is it in Tokyo?"** — it stops and answers that instead.
+- In hotkey mode, **press the key** while it is talking.
+
+While it speaks, what the microphone hears is compared with what Talos is
+saying, so its own voice coming back does not stop it — tried with Piper's
+voices through Whisper: its own sentences, English and Turkish, were never
+taken for an interruption. That was synthesised speech, not a room. It is
+surest with a headset; on speakers, if it ever cuts itself off, set
+`interruptible = false` under `[wake]`.
+
 ## Starting it
 
 ```

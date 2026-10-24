@@ -63,7 +63,23 @@ class Voice:
         # voice reads everything, as before.
         self._turkish = self._find(config.turkish_voice) if config.turkish_voice else None
         self._turkish_rate = self._read_sample_rate(self._turkish) if self._turkish else None
+        # Set to cut a reply off part way: "Talos" or "stop" said over it.
+        # Cleared when the next reply starts.
+        self._interrupted = threading.Event()
+        # The sentence being played and the one before it, so whoever listens
+        # while Talos speaks can tell its own voice coming back from the
+        # owner's. Two, because what is heard is cut into pieces that do not
+        # line up with sentences.
+        self.saying = ""
 
+    def interrupt(self) -> None:
+        """Stop speaking now, and drop what was still to be said."""
+        self._interrupted.set()
+        sd.stop()
+
+    @property
+    def interrupted(self) -> bool:
+        return self._interrupted.is_set()
     def _play(self, audio: np.ndarray, rate: int | None = None) -> None:
         if self._mute:
             return
@@ -175,6 +191,7 @@ class Voice:
         """
         started = time.perf_counter()
         first_audio: float | None = None
+        self._interrupted.clear()
 
         pending: queue.Queue = queue.Queue()
         ready: queue.Queue = queue.Queue(maxsize=4)
@@ -182,22 +199,31 @@ class Voice:
         def synth_worker() -> None:
             while True:
                 item = pending.get()
-                if item is _STOP:
+                if item is _STOP or self._interrupted.is_set():
                     ready.put(_STOP)
                     return
                 spoken = self._synthesise(item)
                 if spoken is not None and spoken[0].size:
-                    ready.put(spoken)
+                    ready.put((*spoken, item))
 
         def play_worker() -> None:
             nonlocal first_audio
+            previous = ""
             while True:
                 item = ready.get()
                 if item is _STOP:
                     return
+                if self._interrupted.is_set():
+                    # Keep taking from the queue without playing. Returning
+                    # here would leave the synthesiser blocked on a full
+                    # queue, waiting for a reader that has gone.
+                    continue
                 if first_audio is None:
                     first_audio = time.perf_counter() - started
-                self._play(*item)
+                audio, rate, text = item
+                self.saying = f"{previous} {text}".strip()
+                previous = text
+                self._play(audio, rate)
 
         synth = threading.Thread(target=synth_worker, daemon=True)
         play = threading.Thread(target=play_worker, daemon=True)
@@ -206,12 +232,21 @@ class Voice:
 
         try:
             for sentence in sentences:
+                if self._interrupted.is_set():
+                    # Stop asking the model for more: closing the stream
+                    # here ends generation, rather than letting it finish an
+                    # answer nobody will hear.
+                    close = getattr(sentences, "close", None)
+                    if close:
+                        close()
+                    break
                 pending.put(sentence)
         finally:
             pending.put(_STOP)
 
         synth.join()
         play.join()
+        self.saying = ""
         return first_audio
 
     def warm_up(self) -> None:

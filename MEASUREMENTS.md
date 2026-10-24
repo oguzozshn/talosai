@@ -369,6 +369,30 @@ explained, and still missed once in the last run.
 the owner's running Ollama with Talos also loaded, not the quiet server the
 earlier medians came from.
 
+### Cutting in over a reply
+
+2026-10-24. While a reply plays, the microphone is cut into pieces of up to
+3 s and each is transcribed; an utterance is an interruption if it starts
+with the name or is only a stop word, and is ignored if 60% of its words are
+in the sentence Talos is saying or the one before.
+
+No working microphone that day, so the check ran on Piper's speech through
+Whisper `large-v3-turbo`, as the microphone would deliver it:
+
+| Heard | Taken as |
+|---|---|
+| Talos's own sentences, two English, one Turkish ("Bugün vize için 2 saat çalışmam var") | ignored, 3 of 3 |
+| "Talos, stop." / "Stop." / "Talos, dur." | stop |
+| "Talos, what time is it in Tokyo?" | a new question |
+| "Dur." on its own, in the English voice | misheard as "Ture", ignored |
+
+Stopping drops what is queued and closes the model's stream: a reply cut at
+1.6 s had pulled 4 of 10 sentences from the model, not all of them.
+
+Unmeasured: the same with a real voice over real speakers, and what the
+transcription every three seconds costs the model generating the reply on
+the same card.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the

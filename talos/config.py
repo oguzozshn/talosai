@@ -66,6 +66,11 @@ class WakeConfig:
     # After the name is said on its own, how long the next utterance counts as
     # a command without repeating it.
     follow_up_seconds: float = 8.0
+    # Listen while answering, so "Talos" or "stop" said over a reply cuts it
+    # off. Talos's own voice in the microphone is told apart by comparing it
+    # with what it is saying; with speakers rather than a headset, turn this
+    # off if it ever stops itself.
+    interruptible: bool = True
     # The same, after Talos has answered — so a reply that ends in a question
     # can simply be answered. Set to 0 to require the name every time, which
     # is safer in a room with a television and no speaker verification.

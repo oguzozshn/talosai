@@ -64,6 +64,11 @@ max_seconds = 15.0
 # People say the name, pause, and then ask. After a bare "Talos" the next
 # utterance is taken as the command without repeating the name, for this long.
 follow_up_seconds = 8.0
+# Listen while answering: "Talos" or "stop" said over a reply cuts it off, and
+# "Talos, <question>" asks something new. Its own voice coming back through
+# the microphone is told apart by comparing it with what it is saying. Safest
+# with a headset; turn off if, on speakers, it ever stops itself.
+interruptible = true
 # The same again after Talos answers, so a reply ending in a question can just
 # be answered. This is the setting that decides whether talking to Talos feels
 # like a conversation or like a series of commands.

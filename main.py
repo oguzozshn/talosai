@@ -311,6 +311,10 @@ def run_push_to_talk(assistant: Assistant, config, diagnostic: bool = False) -> 
                 keyboard_listener.stop()
 
     def on_press(key) -> None:
+        # The key pressed while Talos is answering cuts the answer off.
+        if key == hotkey and busy.locked() and assistant.voice is not None:
+            assistant.voice.interrupt()
+            return
         if key == hotkey and not recorder.recording and not busy.locked():
             try:
                 recorder.start()
@@ -374,6 +378,17 @@ def spoken_confirm(assistant: Assistant, listener, skill_name: str, permission, 
     return False
 
 
+def answer_interruptibly(assistant: Assistant, listener, config, command: str):
+    """Answer, while listening for "Talos" or "stop" said over the answer."""
+    heard_as = assistant.ears.last_language
+    if not config.wake.interruptible or assistant.voice is None:
+        listener.interruption = None
+        return assistant.respond_to_text(command, heard_as=heard_as)
+    voice = assistant.voice
+    with listener.interruptible(voice.interrupt, lambda: voice.saying):
+        return assistant.respond_to_text(command, heard_as=heard_as)
+
+
 def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int:
     from talos.wake import WakeListener
 
@@ -409,13 +424,21 @@ def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int
                 if assistant.voice is not None:
                     assistant.voice.say(config.wake.acknowledgement)
                 continue
-            print(f"you> {command}")
-            # The listener transcribed the command, so Whisper's language for
-            # it is the last one it heard.
-            turn = assistant.respond_to_text(command, heard_as=assistant.ears.last_language)
-            if diagnostic:
-                print(turn.diagnostic())
-            print(f"  [{turn.timings.summary()}]")
+            # A reply cut off by a new question is followed by the answer to
+            # that question, which can itself be cut off.
+            while command:
+                print(f"you> {command}")
+                # The listener transcribed the command, so Whisper's language
+                # for it is the last one it heard.
+                turn = answer_interruptibly(assistant, listener, config, command)
+                if diagnostic:
+                    print(turn.diagnostic())
+                print(f"  [{turn.timings.summary()}]")
+                command = listener.interruption
+                if command == "":
+                    # Only "stop": quiet now, and listening.
+                    print("  (stopped)")
+                    break
             # Say so, because the window is invisible otherwise and the whole
             # point of it is that you can just keep talking.
             if config.wake.continue_seconds > 0:

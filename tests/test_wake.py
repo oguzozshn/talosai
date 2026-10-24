@@ -133,3 +133,67 @@ class TestTheListenerItself:
             assert listener._holding.is_set()
         assert not listener._holding.is_set()
         assert listener._spoke
+
+
+class TestCuttingIn:
+    SAYING = "The weather in Istanbul is nineteen degrees and mostly clear today."
+
+    @pytest.mark.parametrize(
+        ("heard", "meaning"),
+        [
+            ("Talos, stop.", ""),
+            ("Stop.", ""),
+            ("Dur!", ""),
+            ("Talos.", ""),
+            ("Talos, what time is it in Tokyo?", "what time is it in Tokyo?"),
+        ],
+    )
+    def test_the_owner_cutting_in(self, heard, meaning):
+        from talos.wake import interruption
+
+        assert interruption(heard, self.SAYING) == meaning
+
+    @pytest.mark.parametrize(
+        "heard",
+        [
+            "The weather in Istanbul is nineteen degrees",  # its own voice
+            "mostly clear today",
+            "We should stop the build",  # "stop" inside a sentence
+        ],
+    )
+    def test_what_does_not_cut_in(self, heard):
+        from talos.wake import interruption
+
+        assert interruption(heard, self.SAYING) is None
+
+    def test_its_own_name_in_its_own_voice_does_not_stop_it(self):
+        from talos.wake import interruption
+
+        assert interruption("Talos here, your assistant", "Talos here, your assistant.") is None
+
+    def test_the_watcher_stops_the_reply(self):
+        import queue
+        import types
+
+        import numpy as np
+
+        from talos.config import load
+        from talos.wake import WakeListener
+
+        config = load()
+        listener = WakeListener(config.audio, config.wake, lambda audio, hint=None: "Talos, stop.")
+        # Loud blocks are speech, quiet ones silence: enough to be one utterance.
+        listener._vad = lambda block, rate: types.SimpleNamespace(item=lambda: float(block.abs().max() > 0.5))
+        listener._chunks = queue.Queue()
+        for _ in range(20):
+            listener._chunks.put(np.ones(512, dtype=np.float32))
+        for _ in range(20):
+            listener._chunks.put(np.zeros(512, dtype=np.float32))
+
+        stopped = []
+        with listener.interruptible(lambda: stopped.append(True), lambda: self.SAYING):
+            for _ in range(50):
+                if stopped:
+                    break
+                __import__("time").sleep(0.05)
+        assert stopped and listener.interruption == ""

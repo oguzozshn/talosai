@@ -162,6 +162,43 @@ def strip_wake_word(text: str) -> str | None:
     return None
 
 
+# Said over a reply to cut it off without asking anything new. Matched as the
+# whole of a short utterance, so "stop" inside a sentence does not count.
+_STOP_WORDS = {
+    "stop", "wait", "enough", "quiet", "hold on", "thats enough", "never mind",
+    "dur", "sus", "yeter", "bekle", "tamam yeter", "bir dakika",
+}
+# How much of what was heard has to be in what Talos was saying for it to be
+# its own voice coming back. Its own sentence is never transcribed exactly, so
+# not all of it; the owner saying "Talos stop" shares almost none of it.
+_ECHO_OVERLAP = 0.6
+
+
+def is_echo(heard: str, saying: str) -> bool:
+    """Whether what the microphone heard is Talos's own sentence coming back."""
+    heard_words = _normalise(heard).split()
+    if not heard_words:
+        return True
+    said = set(_normalise(saying).split())
+    if not said:
+        return False
+    return sum(word in said for word in heard_words) / len(heard_words) >= _ECHO_OVERLAP
+
+
+def interruption(heard: str, saying: str) -> str | None:
+    """What an utterance over a reply means: None to ignore it, "" to just stop,
+    or a new command to answer instead."""
+    if is_echo(heard, saying):
+        return None
+    command = strip_wake_word(heard)
+    if command is not None:
+        # "Talos, stop" is a stop, not a question about stopping.
+        return "" if _normalise(command) in _STOP_WORDS else command
+    if _normalise(heard) in _STOP_WORDS:
+        return ""
+    return None
+
+
 class WakeListener:
     """Streams microphone audio, yielding the command after each wake word."""
 
@@ -188,6 +225,8 @@ class WakeListener:
         # Set while Talos speaks unprompted — a reminder, the morning brief —
         # outside any turn. Everything heard meanwhile is its own voice.
         self._holding = threading.Event()
+        # Set by interruptible(): what was said over the last reply, if anything.
+        self.interruption: str | None = None
 
     @contextlib.contextmanager
     def hold(self) -> Iterator[None]:
@@ -244,6 +283,72 @@ class WakeListener:
                 chunks.get_nowait()
             except queue.Empty:
                 break
+
+    @contextlib.contextmanager
+    def interruptible(self, stop_speaking, saying) -> Iterator[None]:
+        """While a reply is spoken, listen for "Talos" or "stop" said over it.
+
+        `stop_speaking()` cuts the reply off; `saying()` is the sentence being
+        played, so Talos's own voice in the microphone is not mistaken for the
+        owner's. Afterwards `self.interruption` is None if nothing cut in, ""
+        if the owner only said stop, or the new command to answer.
+
+        The listening loop is paused at its yield while this runs, so the
+        audio it would have read is read here instead, the same way ask()
+        reads a spoken confirmation.
+        """
+        self.interruption = None
+        done = threading.Event()
+        watcher = threading.Thread(
+            target=self._watch, args=(done, stop_speaking, saying), name="interrupt", daemon=True
+        )
+        watcher.start()
+        try:
+            yield
+        finally:
+            done.set()
+            watcher.join(timeout=5)
+
+    def _watch(self, done: threading.Event, stop_speaking, saying) -> None:
+        chunks = self._chunks
+        if chunks is None:
+            return
+        import torch
+
+        rate = self._audio.sample_rate
+        block_size = 512
+        max_silence = int(0.5 * rate / block_size)
+        # Talos speaking is continuous speech to the detector, so what it
+        # hears is cut into pieces this long and each is checked.
+        max_speech = int(3.0 * rate / block_size)
+        speech: list[np.ndarray] = []
+        silence = 0
+        while not done.is_set():
+            try:
+                block = chunks.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            with torch.no_grad():
+                probability = self.vad(torch.from_numpy(block), rate).item()
+            if probability >= self._wake.speech_threshold:
+                speech.append(block)
+                silence = 0
+            elif speech:
+                silence += 1
+                speech.append(block)
+            if not speech or not (silence >= max_silence or len(speech) >= max_speech):
+                continue
+            utterance = np.concatenate(speech)
+            speech, silence = [], 0
+            if len(utterance) / rate < self._wake.min_seconds:
+                continue
+            heard = self._transcribe(utterance, f"{self._wake.word}, stop, dur")
+            meaning = interruption(heard, saying())
+            log.info("heard over the reply: %r -> %r", heard, meaning)
+            if meaning is not None:
+                self.interruption = meaning
+                stop_speaking()
+                return
 
     def ask(self, timeout: float = 8.0, hint: str = "yes no") -> str:
         """Capture and transcribe one short reply, for a confirmation.
