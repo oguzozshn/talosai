@@ -100,7 +100,7 @@ def test_archived_reminders_are_left_out(data):
 def test_a_missing_folder_says_so(tmp_path, monkeypatch):
     monkeypatch.delenv("ARGOS_DATA", raising=False)
     monkeypatch.setattr(argos, "WORKSPACES", (tmp_path,))
-    assert argos.argos_tasks() == argos.NOT_FOUND
+    assert argos.study_progress() == argos.NOT_FOUND
 
 
 def test_argos_data_overrides_the_search(data, monkeypatch):
@@ -109,10 +109,50 @@ def test_argos_data_overrides_the_search(data, monkeypatch):
     assert argos._data_dir() == data
 
 
-def test_the_day_overview_has_sessions_and_tasks(data, monkeypatch):
-    from talos.skills import planner
+class TestDay:
+    """my_day asks every source; these stub the two that are not files here."""
 
-    monkeypatch.setattr(planner, "_active_week", lambda: None)
-    text = argos.day_overview(data, TODAY)
-    assert "Study sessions:" in text and "Vize (midterm), 1 h (to do)" in text
-    assert "Today at ten" in text
+    @pytest.fixture(autouse=True)
+    def sources(self, data, monkeypatch):
+        from talos.skills import planner, todoist
+
+        monkeypatch.setattr(planner, "_active_week", lambda: None)
+        monkeypatch.setattr(argos, "_data_dir", lambda: data)
+        monkeypatch.setattr(todoist, "due_today", lambda limit=5: "Nothing is due today.")
+        monkeypatch.setattr(todoist, "due_on", lambda query, limit=5, empty="": f"checked {query}")
+
+    def test_today_has_sessions_tasks_and_todoist(self):
+        from talos.skills import day
+
+        text = day.overview(TODAY, TODAY)
+        assert "Study sessions:" in text and "Vize (midterm), 1 h (to do)" in text
+        assert "Today at ten" in text
+        assert "Todoist: Nothing is due today." in text
+
+    def test_tomorrow_asks_todoist_for_tomorrow(self):
+        from datetime import timedelta
+
+        from talos.skills import day
+
+        assert "Todoist: checked tomorrow" in day.overview(TODAY + timedelta(days=1), TODAY)
+
+    def test_a_later_day_says_todoist_was_not_checked(self):
+        from datetime import timedelta
+
+        from talos.skills import day
+
+        assert "Todoist was not checked" in day.overview(TODAY + timedelta(days=3), TODAY)
+
+    def test_a_week_that_is_over_is_not_this_week(self, monkeypatch):
+        from talos.skills import day, planner
+
+        old = {"gunler": [{"no": 1, "isoTarih": "2026-01-05"}], "slotlar": []}
+        monkeypatch.setattr(planner, "_active_week", lambda: old)
+        assert day.my_day("week") == "There is no weekly plan for this week."
+
+
+def test_a_date_word_searches_todoist_by_due_date(monkeypatch):
+    from talos.skills import todoist
+
+    monkeypatch.setattr(todoist, "due_on", lambda query, limit=5, empty="": f"due {query}")
+    assert todoist.todoist_search("Tomorrow") == "due tomorrow"

@@ -1,6 +1,6 @@
 # Talking to Talos
 
-Thirty-three skills. You never name them — you say what you want and the model
+Twenty-three skills. You never name them — you say what you want and the model
 picks. The phrases below are examples, not commands; anything that means the
 same thing works.
 
@@ -35,25 +35,11 @@ and leaves the hotkey, **"start listening"** goes back.
 > "Find the README in RatchetSync."
 > "Read the config file in Talos."
 
-### Looking over code
+### Code
 
-> "Show me the uncommitted changes in Talos."
-> "What did the last commit in BACnet actually do?"
-
-It fetches the diff and comments on it. Worth knowing what that is worth: an
-8B model catches typos and forgotten null checks, not race conditions or a
-design that will hurt in six months.
-
-### Changing code
-
-> "In the Talos README, change the licence line to say MIT."
-> "Create a file called notes.md in the Talos project with a heading."
-> "Undo my changes to that file."
-
-Every edit asks first, out loud, and tells you what it is about to change.
-Only files git already tracks can be edited, so `git diff` is always the
-record and `git checkout` is always the undo. It refuses ambiguous edits
-rather than guessing which of three matches you meant.
+Talos reads code, it does not change it. Asked to edit or review, it used to:
+an 8B model with a few thousand words of context caught typos, not bugs, and
+every edit was one more thing to check. Claude Code does both properly.
 
 ### Todoist
 
@@ -195,7 +181,7 @@ scan only runs when you run that command.
 
 ## What it will not do
 
-- Edit a file git does not track, or one it cannot undo
+- Change a file. It reads them, and that is all
 - Open anything that looks like credentials — `.env`, `*.key`, `gizli.json`
 - Reach outside the folders in `[skills] workspaces`
 - Run a command that changes something without asking out loud first

@@ -54,13 +54,20 @@ def _period(period: str) -> tuple[date | None, date, str]:
 
 
 @skill(Permission.OPEN)
-def most_used_apps(period: str = "today", limit: int = 5) -> str:
-    """Report which applications got used the most, and for how long.
+def app_usage(app: str = "", period: str = "today", limit: int = 5) -> str:
+    """Report time spent in applications: the most used ones, or one in particular.
 
     Args:
+        app: One application to ask about, such as Chrome; empty for the most used
         period: "today" for since midnight, "week" for the last 7 days
         limit: how many applications to include, most-used first
     """
+    if app.strip():
+        return _time_in_app(app, period)
+    return _most_used(period, limit)
+
+
+def _most_used(period: str, limit: int) -> str:
     since, until, spoken = _period(period)
     if since is None:
         return (
@@ -103,14 +110,7 @@ def most_used_apps(period: str = "today", limit: int = 5) -> str:
     return f"Most used {spoken}: {listed}. {coverage} {MANNER}"
 
 
-@skill(Permission.OPEN)
-def time_in_app(app: str, period: str = "today") -> str:
-    """Report how long one particular application was used.
-
-    Args:
-        app: Name of the application, such as Chrome or Visual Studio
-        period: "today" for since midnight, "week" for the last 7 days
-    """
+def _time_in_app(app: str, period: str) -> str:
     wanted = app.strip().casefold()
     if not wanted:
         return "Which application? " + MANNER

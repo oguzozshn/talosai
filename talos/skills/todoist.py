@@ -113,30 +113,37 @@ def _describe(tasks: list[dict], limit: int) -> str:
     return f"{len(tasks)} task(s){more}:\n" + "\n".join(lines)
 
 
-@skill(Permission.OPEN)
-def todoist_today(limit: int = 5) -> str:
-    """Report the Todoist tasks due today or overdue.
+def due_today(limit: int = 5) -> str:
+    """The Todoist tasks due today or overdue. Asked by `day.my_day`."""
+    # "today | overdue" is what "what's due" means to a person — yesterday's
+    # unfinished work is still due.
+    return due_on("today | overdue", limit, empty="Nothing is due today.")
 
-    Args:
-        limit: How many tasks to read out
-    """
+
+def due_on(query: str, limit: int = 5, empty: str = "") -> str:
+    """Tasks matching one of Todoist's own filters, such as "tomorrow"."""
     try:
-        # Todoist's own filter language, on the dedicated filter endpoint in
-        # v1. "today | overdue" is what "what's due" means to a person —
-        # yesterday's unfinished work is still due.
-        query = urllib.parse.urlencode({"query": "today | overdue"})
-        tasks = _tasks(_call(f"tasks/filter?{query}"))
+        # The dedicated filter endpoint in v1.
+        encoded = urllib.parse.urlencode({"query": query})
+        tasks = _tasks(_call(f"tasks/filter?{encoded}"))
     except Exception as exc:  # noqa: BLE001
         return _friendly(exc)
 
     if not tasks:
-        return "Nothing is due today."
+        return empty or f"Nothing is due {query}."
     return _describe(tasks, limit)
+
+
+# Words Todoist's own filters take as a date.
+DUE_WORDS = {
+    "today", "tomorrow", "overdue", "yesterday",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+}
 
 
 @skill(Permission.OPEN)
 def todoist_search(about: str, limit: int = 5) -> str:
-    """Find Todoist tasks whose text matches something.
+    """Find Todoist tasks by words in their text, or by when they are due: today, tomorrow, overdue, or a day name.
 
     Args:
         about: Word or phrase to look for
@@ -145,6 +152,13 @@ def todoist_search(about: str, limit: int = 5) -> str:
     needle = about.strip().casefold()
     if not needle:
         return "I need something to look for."
+
+    # Asked "what's due in Todoist tomorrow", the model comes here with
+    # "tomorrow" every time, however the descriptions are worded, and a text
+    # search for the word finds nothing. Todoist's filter language already
+    # understands it, so it is answered as the question it is.
+    if needle in DUE_WORDS:
+        return due_on(needle, limit)
 
     try:
         tasks = _tasks(_call("tasks"))

@@ -141,20 +141,3 @@ def read_screen(monitor: int = 1, language: str = "") -> str:
         f"probably a misreading: say you could not make it out rather than "
         f"guessing, and never translate a word that came out garbled."
     )
-
-
-@skill(Permission.OPEN)
-def screens_available() -> str:
-    """Report how many screens are connected."""
-    try:
-        import mss
-
-        with mss.mss() as sct:
-            screens = sct.monitors[1:]
-    except Exception as exc:  # noqa: BLE001
-        return f"I couldn't check the screens: {exc}"
-
-    if not screens:
-        return "I can't see any screens."
-    sizes = ", ".join(f"{s['width']} by {s['height']}" for s in screens)
-    return f"{len(screens)} screen(s): {sizes}."

@@ -89,9 +89,9 @@ class Score:
         return statistics.median(self.latencies) if self.latencies else 0.0
 
 
-def evaluate(model: str, registry: Registry, repeat: int) -> Score:
+def evaluate(model: str, registry: Registry, repeat: int, context: int | None = None) -> Score:
     config = load()
-    llm = replace(config.llm, model=model)
+    llm = replace(config.llm, model=model, context=context or config.llm.context)
     score = Score(model=model)
 
     print(f"\n{model}")
@@ -152,6 +152,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", nargs="+", default=["qwen3:8b", "gemma3:4b", "llama3.1:8b"])
     parser.add_argument("--repeat", type=int, default=1, help="runs per case")
+    parser.add_argument("--context", type=int, help="num_ctx, instead of the one in settings")
     args = parser.parse_args()
 
     registry = load_skills()
@@ -161,7 +162,7 @@ def main() -> int:
     scores = []
     for model in args.models:
         try:
-            scores.append(evaluate(model, registry, args.repeat))
+            scores.append(evaluate(model, registry, args.repeat, args.context))
         except Exception as exc:  # noqa: BLE001
             print(f"\n{model}: could not evaluate — {exc}")
 

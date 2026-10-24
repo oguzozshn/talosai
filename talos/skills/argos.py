@@ -215,71 +215,7 @@ def goals_and_reminders(data: Path) -> str:
     return "\n".join(lines)
 
 
-def day_overview(data: Path, on: date) -> str:
-    """Everything local that says what a day holds, in one answer.
-
-    "What's on my plate today" spans the weekly plan, study sessions and
-    tasks. Asked it, the model picked one of the three, got nothing back
-    because there was no plan file for the week, and offered to look further
-    instead of looking. One skill that already covers the whole question
-    leaves it nothing to choose wrongly.
-    """
-    from talos.skills import planner
-
-    parts: list[str] = []
-    week = planner._active_week()
-    if week is not None:
-        iso = on.isoformat()
-        day = next((d for d in week.get("gunler", []) if str(d.get("isoTarih")) == iso), None)
-        if day is not None:
-            slots = sorted(
-                (s for s in week.get("slotlar", []) if s.get("gun") == day.get("no")),
-                key=lambda s: str(s.get("saat", "")),
-            )
-            if slots:
-                parts.append("Weekly plan:\n" + "\n".join(f"  {planner._slot_line(s)}" for s in slots))
-
-    sessions = sessions_on(_load(data / MARKER) or {}, on)
-    if sessions:
-        parts.append("Study sessions:\n" + "\n".join(f"  {line}" for line in sessions))
-
-    parts.append(open_tasks(data, on))
-    return "\n".join(parts)
-
-
 NOT_FOUND = "I can't find the Argos data folder."
-
-
-@skill(Permission.OPEN)
-def my_day(day: str = "today") -> str:
-    """Say what a day holds: weekly plan slots, study sessions and Argos tasks due. Use for "what's on my plate".
-
-    Args:
-        day: today, tomorrow, a day name such as Friday, or YYYY-MM-DD
-    """
-    data = _data_dir()
-    if data is None:
-        return NOT_FOUND
-    on = _target_day(day)
-    if on is None:
-        return f"'{day}' isn't a day I understand. Use today, tomorrow, a day name or YYYY-MM-DD."
-    return day_overview(data, on)
-
-
-@skill(Permission.OPEN)
-def argos_tasks(day: str = "today") -> str:
-    """List open tasks from the Argos planner that are due by a day, overdue ones included.
-
-    Args:
-        day: today, tomorrow, a day name such as Friday, or YYYY-MM-DD
-    """
-    data = _data_dir()
-    if data is None:
-        return NOT_FOUND
-    on = _target_day(day)
-    if on is None:
-        return f"'{day}' isn't a day I understand. Use today, tomorrow, a day name or YYYY-MM-DD."
-    return open_tasks(data, on)
 
 
 @skill(Permission.OPEN)

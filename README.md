@@ -33,9 +33,8 @@ These are hard requirements, not preferences:
    to do. Silence and "maybe" count as no.
 4. **Skills are files.** Adding a capability means dropping a Python file into `talos/skills/` — never editing the core.
 
-Speaker verification was a fifth constraint and was dropped. The code is in
-`talos/speaker.py` and nothing enrols it, so nothing tells your voice from
-anyone else's.
+Speaker verification was a fifth constraint and was dropped, code and all, so
+nothing tells your voice from anyone else's.
 
 ## Stack
 
@@ -120,7 +119,7 @@ discovered from files and called by the model.
 | 0 — environment | Done. Numbers in [MEASUREMENTS.md](MEASUREMENTS.md) |
 | 1 — the chain | Done, push-to-talk. 0.93 s to first audio |
 | 2 — wake word | Done. No trained model — see below |
-| 3 — skills | Done: 33 skills, sandboxed, permission-tiered |
+| 3 — skills | Done: 23 skills, sandboxed, permission-tiered |
 | 4 — memory | Done: profile, recall, and bounded summarisation |
 | 5 — living with it | Partly: GPU release and mode switching, no autostart |
 

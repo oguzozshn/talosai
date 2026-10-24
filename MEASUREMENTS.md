@@ -199,6 +199,48 @@ still.
 Verdict: no change. Worth trying again only on a larger card, or if a case
 turns up that the 8B gets wrong.
 
+### Twice the context, for no memory: `q8_0` KV cache
+
+2026-10-24, Ollama 0.40.6, `qwen3:8b` with Whisper `large-v3-turbo` resident,
+the real system prompt and skills. Warm model, median of three after one
+discarded run. Each row is a separate Ollama server, so the cache type is the
+only difference. The card read 757 MiB with nothing loaded.
+
+| KV cache | Context | Total | Model VRAM | Card total |
+|---|---|---|---|---|
+| f16 (default) | 4096 | 0.54 s | 5.59 GB | 6744 MiB |
+| f16 (default) | 8192 | 0.91 s | 6.19 GB | 7020 MiB |
+| `q8_0` + flash attention | 4096 | 0.51 s | 5.30 GB | 6237 MiB |
+| `q8_0` + flash attention | 8192 | **0.53 s** | 5.63 GB | **6547 MiB** |
+
+At 8 bits, 8192 tokens cost less than the default 4096 did, and are no
+slower. The default cache at 8192 also fits, at 300 MB more and 0.4 s more
+per reply. `scripts/compare_models.py` on the `q8_0` server at 8192 scored
+36/36 — the smaller cache did not cost accuracy on these cases.
+
+`context` is now 8192. The cache type belongs to the Ollama service, not to a
+request, so it is set in the environment Ollama starts in:
+`OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`.
+
+### Fewer skills: 40 to 23
+
+Same day. Removed code editing and review (five skills), two diagnostics, and
+merged every group that answered one question: seven planning skills into
+`my_day`, three about Talos into `about_me`, three for listening into one, two
+each for English practice and application time.
+
+| | Skills | Prompt tokens before the question |
+|---|---|---|
+| Before | 40 | 3584 |
+| After | 23 | **2812** |
+
+`compare_models.py` still 36/36. Fifteen new cases for the merged skills
+scored 13/15 on the first try. Two misses were fixed by rewording a
+description; the third — "what's due in Todoist tomorrow" sent as a text
+search for "tomorrow" every time — by making `todoist_search` treat a date
+word as the date filter it obviously is. "Are you listening all the time?"
+still sometimes gets an answer from the model without calling `listening`.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the

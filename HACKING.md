@@ -150,16 +150,12 @@ registry, but a caught exception is a worse answer than a written one.
 ```python
 @skill(Permission.OPEN)     # reads something. Runs without asking.
 @skill(Permission.CONFIRM)  # changes something. Asks out loud first.
-@skill(Permission.OWNER)    # destructive. Asks, and would check the voice.
 ```
 
 The tiers are about **what cannot easily be undone**, not about reads versus
 writes. `take_note` appends a timestamped line to one file and is OPEN;
 `todoist_complete` is CONFIRM because other people see a completed task before
 you can take it back.
-
-`OWNER` currently behaves like `CONFIRM` — speaker verification exists in
-`talos/speaker.py` but is not enrolled. It is not a lock.
 
 Confirmation is spoken and carries your arguments, so the user hears *what*
 will happen, not just which function. Silence and anything ambiguous count as

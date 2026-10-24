@@ -5,6 +5,9 @@ with a day, a time, an area and a topic, in `data/W<week>.json`. This reads
 it. Nothing here plans anything or writes anything; asking "what am I meant to
 be doing" should not be able to change the answer.
 
+There are no skills here: `day.my_day` asks this module, along with Argos and
+Todoist, so that one question gets one answer.
+
 The file is found rather than configured: any workspace root holding a `data`
 directory with `W*.json` in it will do, so moving the project only means
 updating `workspaces` in settings.
@@ -18,7 +21,6 @@ from datetime import date, datetime
 from pathlib import Path
 
 from talos.skills._workspace import WORKSPACES
-from talos.skills.base import Permission, skill
 
 log = logging.getLogger(__name__)
 
@@ -87,9 +89,8 @@ def _slot_line(slot: dict) -> str:
     return f"{slot.get('saat', '')} {slot.get('alan', '')} — {slot.get('konu', '')}{length} ({status})"
 
 
-@skill(Permission.OPEN)
-def weekly_plan() -> str:
-    """Summarise the current week's plan: how many slots, and how many are done."""
+def week_summary() -> str:
+    """The current week's plan: how many slots, and how many are done."""
     week = _active_week()
     if week is None:
         return "I can't find a weekly plan file."
@@ -114,12 +115,11 @@ def weekly_plan() -> str:
     )
 
 
-@skill(Permission.OPEN)
-def whats_next() -> str:
-    """Report the next thing scheduled from now, whether today or later this week."""
+def next_up() -> str | None:
+    """The next thing scheduled from now, today or later this week, or None."""
     week = _active_week()
     if week is None:
-        return "I can't find a weekly plan file."
+        return None
 
     by_number = {int(d.get("no", 0)): d for d in week.get("gunler", [])}
     now = datetime.now()
@@ -139,7 +139,7 @@ def whats_next() -> str:
             upcoming.append((when, slot, str(day.get("ad", ""))))
 
     if not upcoming:
-        return "Nothing left on the plan for this week."
+        return None
 
     when, slot, day_name = min(upcoming, key=lambda item: item[0])
     same_day = when.date() == now.date()

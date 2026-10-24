@@ -82,16 +82,9 @@ rather than tuning the benchmark until it passes.
 
 ### 3. Delete what is not used
 
-- `talos/speaker.py` and `scripts/enrol_voice.py` — speaker verification,
-  built and then declined by the owner. Nothing calls it, and it is the only
-  reason PyTorch (526 MB) is installed.
-- The `OWNER` permission tier in `talos/skills/base.py`. It promises a
-  verified voice, there is none, and it behaves exactly like `CONFIRM`. A tier
-  that never differs from another tier is noise in the API. Move
-  `undo_changes` to `CONFIRM` and remove the tier.
-- Consider merging `whats_next` and `weekly_plan` into `my_day`, which
-  replaced `todays_plan`. Fewer skills for one question means fewer chances
-  to pick the wrong one, and the prompt is at 3.6k of 4096 tokens.
+- Done on 2026-10-24: 40 skills became 23. Code editing and review went
+  (Claude Code does both properly), and every set of skills that answered one
+  question became one skill with an argument. See MEASUREMENTS.md.
 
 Keep `scripts/make_wake_samples.py`, `train_wake_word.py` and
 `test_wake_word.py` — they are a documented, measured, parked option and
@@ -142,7 +135,7 @@ instruction already forbids and the model produced anyway:
   minutes, Chrome for 1 hour 35 minutes" — a skill's output from one afternoon,
   reported as a durable fact.
 - **Practice-session artefacts.** Half a dozen candidates about English tense
-  and article mistakes, all quoted from `start_english_practice` corrections.
+  and article mistakes, all quoted from `english_practice` corrections.
   They are real and they are quotable, which is why the guard let them through.
   A conversation in practice mode is probably not a source of profile facts at
   all, and `session.coaching` already marks which exchanges those were — but

@@ -43,14 +43,6 @@ class Permission(Enum):
     # before it runs.
     CONFIRM = "confirm"
 
-    # Destructive or irreversible. Needs a spoken yes *and* a voice that
-    # matches the enrolled profile.
-    #
-    # Speaker verification arrives in phase 2. Until then this tier behaves
-    # exactly like CONFIRM, and the executor says so rather than implying a
-    # protection that is not there yet.
-    OWNER = "owner"
-
 
 # "    name: description" under an Args: heading.
 _ARG_LINE = re.compile(r"^\s*(\w+)\s*:\s*(.+)$")

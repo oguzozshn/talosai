@@ -44,19 +44,6 @@ def _vram() -> tuple[int, int] | None:
     return used, total
 
 
-@skill(Permission.OPEN)
-def gpu_memory() -> str:
-    """Report how much graphics memory is in use."""
-    reading = _vram()
-    if reading is None:
-        return "I can't read the graphics card."
-    used, total = reading
-    return (
-        f"{used} of {total} megabytes of graphics memory are in use, "
-        f"about {used * 100 // total} percent."
-    )
-
-
 # OPEN rather than CONFIRM: nothing is destroyed and nothing leaves the
 # machine. The only cost is that the next question is slow, and that is the
 # thing being asked for.

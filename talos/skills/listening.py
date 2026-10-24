@@ -17,30 +17,32 @@ from talos.session import current
 from talos.skills.base import Permission, skill
 
 
+# One skill rather than start, stop and status: three skills for one switch
+# was three entries in every prompt and three chances to pick the wrong one.
 @skill(Permission.OPEN)
-def stop_listening() -> str:
-    """Stop listening continuously, and only record while the hotkey is held."""
-    if current.mode == "hotkey":
-        return "I'm already only listening when you hold the key."
-    current.switch_to("hotkey")
-    return (
-        "Right, I'll stop listening. Hold F9 when you want me, and say "
-        "start listening to go back."
-    )
+def listening(switch: str = "") -> str:
+    """Report or change how Talos listens: continuously for its name, or only while the hotkey is held. Use for "are you listening", "stop listening".
 
+    Args:
+        switch: "on" to listen continuously, "off" to listen only on the hotkey, empty to report which it is
+    """
+    wanted = switch.strip().casefold()
 
-@skill(Permission.OPEN)
-def start_listening() -> str:
-    """Listen continuously again, waking on the name instead of a key."""
-    if current.mode == "wake":
-        return "I'm already listening."
-    current.switch_to("wake")
-    return "Listening again. Just say my name."
+    if wanted in {"off", "stop", "hotkey", "key"}:
+        if current.mode == "hotkey":
+            return "I'm already only listening when you hold the key."
+        current.switch_to("hotkey")
+        return (
+            "Right, I'll stop listening. Hold F9 when you want me, and say "
+            "start listening to go back."
+        )
 
+    if wanted in {"on", "start", "wake", "continuous"}:
+        if current.mode == "wake":
+            return "I'm already listening."
+        current.switch_to("wake")
+        return "Listening again. Just say my name."
 
-@skill(Permission.OPEN)
-def listening_mode() -> str:
-    """Report whether Talos is listening continuously or waiting for the hotkey."""
     if current.mode == "wake":
         return (
             "I'm listening continuously and waking on my name. Everything said "

@@ -22,11 +22,10 @@ from talos.skills.base import Permission, skill
 AREAS = {
     "project_status": ("your projects", "what you have, what state it is in, what you touched recently"),
     "find_file": ("your files", "finding and reading anything in the folders I can see"),
-    "edit": ("changing code", "editing, creating, and undoing — only where git can undo it"),
-    "review": ("looking over code", "fetching a diff or a commit so we can talk about it"),
     "notes": ("notes", "writing things down and reading them back"),
     "recall": ("memory", "searching everything we have said before"),
-    "planner": ("your week", "the plan you keep in the personal assistant project"),
+    "day": ("your day", "what is planned, due and next, from Argos, the weekly plan and Todoist"),
+    "argos": ("your studies and goals", "hours left on each study plan, and the goals you keep in Argos"),
     "todoist": ("Todoist", "what is due, adding tasks, marking them done"),
     "weather": ("weather", "current conditions anywhere"),
     "search": ("the web", "looking up anything current"),
@@ -62,19 +61,38 @@ def _grouped() -> dict[str, list[str]]:
     return grouped
 
 
+LIMITS = (
+    "Three things worth knowing. I am a small model, so I am good at fetching "
+    "and poor at judging — check anything that matters. I can only see a few "
+    "thousand words at once, so I cannot read a whole source file and reason "
+    "about it. And I cannot tell your voice from anyone else's, so in the "
+    "seconds after I answer, whatever is said in the room is treated as meant "
+    "for me."
+)
+
+
+# One skill for every question about Talos itself. Three of them — what, how,
+# limits — were three entries in every prompt for questions asked rarely.
 @skill(Permission.OPEN)
-def what_can_you_do(about: str = "") -> str:
-    """Answer "what can you do", "what are your skills", "what can you help with".
+def about_me(topic: str = "skills") -> str:
+    """Answer questions about Talos itself: what it can do, how it works, what it is bad at.
 
     Always call this rather than answering from memory. It counts the skills
     actually loaded right now, which is the only accurate answer — you cannot
     see how many there are or what they are grouped into.
 
     Args:
-        about: An area to go into detail on, such as projects, memory or Todoist
+        topic: "skills" for what Talos can do, an area such as projects or Todoist for detail, "how" for how it works, "limits" for what it is bad at
     """
+    wanted = topic.strip().casefold()
+    if wanted in {"skills", "skill", "abilities", "everything", "all"}:
+        wanted = ""
+    if wanted in {"how", "how it works", "how you work", "works"}:
+        return HOW_IT_WORKS
+    if wanted in {"limits", "limit", "weaknesses", "bad at"}:
+        return LIMITS
+
     grouped = _grouped()
-    wanted = about.strip().casefold()
 
     if wanted:
         # Match on the area name or on the module, so "projects", "my
@@ -86,7 +104,7 @@ def what_can_you_do(about: str = "") -> str:
                 names = ", ".join(n.replace("_", " ") for n in grouped[module])
                 return f"For {area} I can help with {detail}. The skills are: {names}."
         return (
-            f"I have nothing for {about}. Ask what I can do in general and I will "
+            f"I have nothing for {topic}. Ask what I can do in general and I will "
             f"tell you the areas I cover."
         )
 
@@ -94,28 +112,9 @@ def what_can_you_do(about: str = "") -> str:
     total = sum(len(v) for v in grouped.values())
     listed = ", ".join(covered[:-1]) + f", and {covered[-1]}" if len(covered) > 1 else covered[0]
 
-    # Deliberately not a list of thirty-four names. Spoken, that is noise.
+    # Deliberately not a list of every name. Spoken, that is noise.
     return (
         f"I have {total} skills across {len(covered)} areas: {listed}. "
         f"Ask about any one of those and I will go into detail. "
         f"You never need to name a skill — say what you want and I will pick."
-    )
-
-
-@skill(Permission.OPEN)
-def how_do_you_work() -> str:
-    """Explain how Talos works: what runs where, and what leaves the machine."""
-    return HOW_IT_WORKS
-
-
-@skill(Permission.OPEN)
-def what_are_your_limits() -> str:
-    """Report honestly what Talos is bad at, so it is not relied on for those."""
-    return (
-        "Three things worth knowing. I am a small model, so I am good at fetching "
-        "and poor at judging — check anything that matters. I can only see about "
-        "three thousand words at once, so I cannot read a whole source file and "
-        "reason about it. And I cannot tell your voice from anyone else's, so in "
-        "the seconds after I answer, whatever is said in the room is treated as "
-        "meant for me."
     )
