@@ -174,6 +174,13 @@ class TtsConfig:
 
 
 @dataclass(frozen=True)
+class StudyConfig:
+    # One folder per course inside, holding its slides, notes and books.
+    # Empty turns the course search and glossary off.
+    folder: str = ""
+
+
+@dataclass(frozen=True)
 class TelegramConfig:
     # Leave empty here, like the Todoist token: it goes in config/local.toml
     # or TALOS_TELEGRAM_TOKEN. With no token, Telegram is simply off.
@@ -200,6 +207,7 @@ class Config:
     usage: UsageConfig = field(default_factory=UsageConfig)
     profile: ProfileConfig = field(default_factory=ProfileConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
+    study: StudyConfig = field(default_factory=StudyConfig)
 
     @property
     def character(self) -> str:
@@ -263,4 +271,5 @@ def load() -> Config:
         usage=_section(data, "usage", UsageConfig),
         profile=_section(data, "profile", ProfileConfig),
         telegram=_section(data, "telegram", TelegramConfig),
+        study=_section(data, "study", StudyConfig),
     )

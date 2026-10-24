@@ -229,6 +229,8 @@ def study_progress(plan: str = "") -> str:
         how much study time is left for the midterm
         how am I doing on game programming
         vizeye kaç saat kaldı
+        finale ne kadar çalışmam lazım
+        how many hours do I still need for the exam
     """
     data = _data_dir()
     return NOT_FOUND if data is None else plan_progress(data, plan, date.today())

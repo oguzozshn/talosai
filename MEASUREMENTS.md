@@ -317,6 +317,31 @@ All 45 now sit in `check_router.py`: 45/45 at closest 6, 44/45 at closest 4.
 
 `compare_models.py` with the router, 36/36, median 1.27 s.
 
+### Course material
+
+2026-10-24. Dersler: two courses, eight files — a 673-page textbook, a
+19-page lecture note, four slide decks, a syllabus and a text file.
+
+| | |
+|---|---|
+| First index | 1 min 44 s, 2373 passages (2192 of them the textbook) |
+| Again, nothing changed | 0 files read |
+| `data/study.db` | 11.8 MB |
+| A search, first of the session | 0.75 s, loading the vectors included |
+
+`check_router.py` with the three study skills: 52/52 at closest 6 and at 4.
+Two misses on the way there were fixed with examples — "what's a functional
+requirement" for `explain_term`, "finale ne kadar çalışmam lazım" for
+`study_progress` — and that second one is close to the case it fixed, so
+treat that case as weaker evidence than the rest.
+
+`explain_term` now takes every "what is X", by choice: answered from memory,
+a term never reached the glossary. Worded to say so, it was called in 11 of
+12 tries on four such questions. `compare_models.py`'s "explain what a race
+condition is" case changed from "no skill" to `explain_term` to match, and is
+36/36 with the router. Its median was 1.74 s against 1.27 s before; the extra
+round trip on those cases is part of it, the rest not investigated.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the

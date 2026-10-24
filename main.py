@@ -3,6 +3,7 @@
     run main.py                  hold the hotkey, speak, release
     run main.py --text           type instead of speaking
     run main.py --telegram       answer only on Telegram, no microphone
+    run main.py --index-courses  index the course folder now, then exit
     run main.py --say "merhaba"  one exchange, then exit
     run main.py --mute           run the whole chain but stay silent
     run main.py --diagnostic     also print what was heard, which skills ran,
@@ -431,6 +432,16 @@ def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int
     return 0
 
 
+def index_courses(library) -> int:
+    if library is None:
+        print("No course folder. Set [study] folder in config/settings.toml.")
+        return 1
+    print(f"Indexing {library.folder}. Only new and changed files are read.\n")
+    read, added = library.update(progress=lambda name, count: print(f"  {name}: {count} passages"))
+    print(f"\n{read} file(s) read, {added} passages added.")
+    return 0
+
+
 def run_telegram_only() -> int:
     """Nothing to do here but wait: the bot answers on its own thread."""
     print("Answering on Telegram only. Ctrl+C to quit.\n")
@@ -458,6 +469,9 @@ def main() -> int:
         help="review facts Talos proposes about you, and promote the true ones",
     )
     parser.add_argument("--forget", action="store_true", help="erase everything remembered")
+    parser.add_argument(
+        "--index-courses", action="store_true", help="index the course folder now, showing progress, and exit"
+    )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--diagnostic",
@@ -496,6 +510,12 @@ def main() -> int:
     if args.profile:
         return review_profile(config)
 
+    from talos import study
+
+    library = study.open_library(config.study.folder)
+    if args.index_courses:
+        return index_courses(library)
+
     # Started before the assistant, so the minute spent warming models is
     # itself recorded. It only counts while Talos runs, and every answer
     # built on it says so.
@@ -505,6 +525,9 @@ def main() -> int:
         Sampler().start()
 
     assistant = start_up(config, mute=args.mute)
+    # After warming up, so the first file read does not compete with it.
+    if library is not None and not args.say:
+        study.index_in_background(library)
 
     # Alongside whichever mode runs, not instead of it: the phone and the
     # microphone are two ways into the same assistant.

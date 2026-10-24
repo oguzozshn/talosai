@@ -60,7 +60,10 @@ CASES = [
     # trip, so these carry the same weight as the ones above.
     Case("What is the capital of France?", None),
     Case("Thanks, that's all for now.", None),
-    Case("Explain what a race condition is, briefly.", None),
+    # Was "no skill" until explain_term: every "what is X" now goes through
+    # it, by the owner's choice, so that terms met while studying are kept
+    # in the glossary. It costs a round trip; see MEASUREMENTS.md.
+    Case("Explain what a race condition is, briefly.", "explain_term"),
     Case("How are you doing today?", None),
     Case("What is twelve times eleven?", None),
 ]

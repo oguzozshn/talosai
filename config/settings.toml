@@ -183,6 +183,13 @@ router_top = 6
 # pushed to GitHub the next time anyone runs git add.
 token = ""
 
+[study]
+# Course material: one folder per course, with its slides (.pptx), notes and
+# books (.pdf), and anything in .docx, .txt or .md. Indexed in the background
+# after start-up, and again whenever a file changes. Must be inside the
+# folders above. Empty turns it off.
+folder = "C:/Users/oguzo/OneDrive/Desktop/Dersler"
+
 [telegram]
 # Talk to Talos from your phone. Off until a bot token is set — put it in
 # config/local.toml, never here, for the same reason as the Todoist token.

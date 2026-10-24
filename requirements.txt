@@ -45,6 +45,11 @@ onnxruntime>=1.17,<2
 # package; scripts/test_tts.py locates it and falls back to the built-in
 # Windows voice if it is not there yet. See scripts/README.md.
 
+# --- Course material -------------------------------------------------------
+# Reading PDFs for talos/study.py. Pure Python. Slides and Word files are zips
+# of XML and are read without a library.
+pypdf>=5
+
 # --- Windows -----------------------------------------------------------------
 # COM access: the desktop shortcut (scripts/make_shortcut.py), and the Windows
 # Search index for finding files.

@@ -1,6 +1,6 @@
 # Talking to Talos
 
-Twenty-six skills. You never name them — you say what you want and the model
+Twenty-nine skills. You never name them — you say what you want and the model
 picks. The phrases below are examples, not commands; anything that means the
 same thing works.
 
@@ -76,6 +76,31 @@ so a mishearing shows before the answer to it.
 > "What's the status of the BACnet project?"
 > "List my projects."
 > "Read the config file in Talos."
+
+### Studying
+
+> "What does traceability mean?"
+> "RAG ne demek?"
+> "What do the slides say about elicitation techniques?"
+> "Which terms have I asked about?"
+> "Quiz me on my requirements terms."
+
+The course folder (`[study] folder`, Dersler on the desktop) holds a folder
+per course. Its slides, notes, books and syllabus are indexed in the
+background after start-up — the first time takes a couple of minutes for a
+textbook, after that only changed files are read. To index now and watch:
+
+```
+run main.py --index-courses
+```
+
+Answers from the material say which file and page or slide they came from.
+Without a course named, the one in today's Argos study session is assumed.
+
+Every "what is X" goes through the course material first, even for something
+Talos knows — so the course's own sense of the word comes first, and the term
+lands in your glossary with what Talos said about it. Asking to be quizzed
+picks one and waits for your explanation before comparing.
 
 ### Your files
 

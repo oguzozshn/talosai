@@ -11,7 +11,10 @@ turned on out loud and can turn off the same way.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +31,19 @@ class Session:
     # Set when the mode should change. The loops own their own exits, so
     # they are asked rather than interrupted.
     switch_requested: bool = False
+
+    # Called with the full answer once a reply is finished. A skill that
+    # needs what was said — the glossary keeps Talos's explanation of a term —
+    # registers here, and is called once.
+    after_reply: list = field(default_factory=list)
+
+    def reply_finished(self, answer: str) -> None:
+        waiting, self.after_reply = self.after_reply, []
+        for callback in waiting:
+            try:
+                callback(answer)
+            except Exception:  # noqa: BLE001 — bookkeeping must not break a reply
+                log.exception("after-reply callback failed")
 
     def switch_to(self, mode: str) -> None:
         self.mode = mode

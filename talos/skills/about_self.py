@@ -24,6 +24,7 @@ AREAS = {
     "find_file": ("your files", "finding and reading anything in the folders I can see"),
     "notes": ("notes", "writing things down and reading them back"),
     "recall": ("memory", "searching everything we have said before"),
+    "study": ("your courses", "answers from your slides, notes and textbooks, and the terms you asked about"),
     "day": ("your day", "what is planned, due and next, from Argos, the weekly plan and Todoist"),
     "argos": ("your studies and goals", "hours left on each study plan, and the goals you keep in Argos"),
     "todoist": ("Todoist", "what is due, adding tasks, marking them done"),

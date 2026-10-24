@@ -351,6 +351,9 @@ class Brain:
         self.last_tool_results = []
         self.last_thinking = ""
         self.last_rounds = 0
+        # Left over only if the last reply failed part way, and then it would
+        # attach this answer to that turn's question.
+        session.after_reply.clear()
         self.last_offered = self._router.choose(prompt) if self._router else None
         self._record_if_asked(prompt, messages)
 
@@ -451,6 +454,7 @@ class Brain:
                 yield correction
 
         self._remember(prompt, " ".join(spoken))
+        session.reply_finished(" ".join(spoken))
 
     def _remember(self, prompt: str, answer: str) -> None:
         if self._memory is not None and answer.strip():
