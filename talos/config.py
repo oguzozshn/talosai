@@ -115,6 +115,9 @@ class SkillsConfig:
     # The directories skills may read. Everything outside is refused. A list
     # because projects do not all live in one folder.
     workspaces: tuple[str, ...] = ()
+    # Folders skills may find and read in, beyond the projects. Kept apart
+    # from workspaces so that a folder of documents is not listed as projects.
+    folders: tuple[str, ...] = ()
     # How many times the model may call a skill and be handed the result
     # before it has to answer. Without a ceiling, a model that misreads a
     # result can call the same skill forever.

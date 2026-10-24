@@ -32,8 +32,24 @@ and leaves the hotkey, **"start listening"** goes back.
 > "What have I worked on recently?"
 > "What's the status of the BACnet project?"
 > "List my projects."
-> "Find the README in RatchetSync."
 > "Read the config file in Talos."
+
+### Your files
+
+> "Where is my Dersler folder?"
+> "Which PDFs are in Dersler?"
+> "Find the README in RatchetSync."
+> "Open the Dersler folder."
+
+Everything on the desktop, not only the projects. Searches go through the
+Windows Search index, so they take about a second; walking the desktop by hand
+took up to 42. The index can miss things — on this machine it had skipped the
+Talos project — so the top of every folder and every project is also looked at
+directly. Many names here are Turkish, so if nothing turns up, say the Turkish
+word.
+
+"Open" shows a folder in Explorer, or a file selected in its folder. It never
+runs a file: for a `.cmd` or `.exe` that would mean running a program.
 
 ### Code
 
@@ -183,7 +199,7 @@ scan only runs when you run that command.
 
 - Change a file. It reads them, and that is all
 - Open anything that looks like credentials — `.env`, `*.key`, `gizli.json`
-- Reach outside the folders in `[skills] workspaces`
+- Reach outside the folders in `[skills] workspaces` and `[skills] folders`
 - Run a command that changes something without asking out loud first
 - Treat silence or "maybe" as a yes
 

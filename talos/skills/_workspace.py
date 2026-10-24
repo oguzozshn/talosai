@@ -24,9 +24,9 @@ from talos.config import load
 _config = load()
 
 
-def _roots() -> tuple[Path, ...]:
+def _roots(entries: tuple[str, ...]) -> tuple[Path, ...]:
     resolved: list[Path] = []
-    for entry in _config.skills.workspaces:
+    for entry in entries:
         try:
             path = Path(entry).expanduser().resolve()
         except OSError:
@@ -36,7 +36,29 @@ def _roots() -> tuple[Path, ...]:
     return tuple(resolved)
 
 
-WORKSPACES = _roots()
+# Folders of projects. Skills that list or inspect projects look only here.
+WORKSPACES = _roots(_config.skills.workspaces)
+# Everything else that may be found and read, such as the whole desktop.
+FOLDERS = _roots(_config.skills.folders)
+
+
+def reach() -> tuple[Path, ...]:
+    """Every root a path may resolve into: projects first, then folders.
+
+    A function rather than a constant, so a test that narrows WORKSPACES
+    narrows this too.
+    """
+    return WORKSPACES + tuple(f for f in FOLDERS if f not in WORKSPACES)
+
+
+def search_roots() -> tuple[Path, ...]:
+    """The roots worth walking: those not already inside another.
+
+    The desktop holds the projects folder, so walking both would find every
+    project file twice.
+    """
+    roots = reach()
+    return tuple(r for r in roots if not any(o != r and o in r.parents for o in roots))
 
 # Filenames that hold credentials. Refused for reading as much as for writing:
 # the damage from a secret is done by it being seen, and this assistant speaks
@@ -69,24 +91,25 @@ def resolve(relative: str = "", *, allow_secret: bool = False) -> Path:
     allowed only if they land inside one, so a model that helpfully expands a
     filename to a full path is not punished for it.
     """
-    if not WORKSPACES:
+    roots = reach()
+    if not roots:
         raise OutsideWorkspace("No workspace is configured, so I can't read anything.")
 
     candidate = Path(relative.strip()) if relative else Path()
 
     if candidate.is_absolute() or not relative:
-        attempts = [candidate if candidate.is_absolute() else WORKSPACES[0]]
+        attempts = [candidate if candidate.is_absolute() else roots[0]]
     else:
         # First root that actually contains it wins, so "Talos/README.md" and
         # "personnal_assistant/siradaki.md" both work without being told which
         # root they belong to.
-        attempts = [root / candidate for root in WORKSPACES]
+        attempts = [root / candidate for root in roots]
         # A root can also be named directly. One of them is a project rather
         # than a folder of projects, and asking for it by name would otherwise
         # look inside it for a copy of itself. Resolving from the parent still
-        # goes through the containment check below, so a sibling like "CV" is
-        # refused as it should be.
-        attempts += [root.parent / candidate for root in WORKSPACES]
+        # goes through the containment check below, so a sibling outside
+        # every root is refused as it should be.
+        attempts += [root.parent / candidate for root in roots]
 
     resolved = None
     for attempt in attempts:
@@ -100,9 +123,8 @@ def resolve(relative: str = "", *, allow_secret: bool = False) -> Path:
                 break
 
     if resolved is None:
-        roots = ", ".join(str(r) for r in WORKSPACES)
         raise OutsideWorkspace(
-            f"'{relative}' is outside my workspace. I can only reach inside: {roots}."
+            f"'{relative}' is outside my workspace. I can only reach inside: {roots_description()}."
         )
 
     if not allow_secret and is_secret(resolved):
@@ -113,12 +135,15 @@ def resolve(relative: str = "", *, allow_secret: bool = False) -> Path:
 
 
 def _inside(path: Path) -> bool:
-    return any(path == root or root in path.parents for root in WORKSPACES)
+    return any(path == root or root in path.parents for root in reach())
 
 
 def describe(path: Path) -> str:
     """Path as the user would recognise it — relative to whichever root holds it."""
-    for root in WORKSPACES:
+    roots = reach()
+    # Projects come first in reach(), so a project file is named from its
+    # projects folder rather than from the desktop that also holds it.
+    for root in roots:
         try:
             relative = path.relative_to(root)
         except ValueError:
@@ -129,9 +154,12 @@ def describe(path: Path) -> str:
             return root.name
         # Name the root when there is more than one, or "data/W34.json" is
         # ambiguous between projects.
-        return f"{root.name}/{relative}" if len(WORKSPACES) > 1 else str(relative)
+        # Forward slashes throughout. "Projects/Talos\README.md", half and
+        # half, is what the model was handed when it stopped without a word.
+        relative = relative.as_posix()
+        return f"{root.name}/{relative}" if len(roots) > 1 else relative
     return str(path)
 
 
 def roots_description() -> str:
-    return ", ".join(str(r) for r in WORKSPACES) or "(none)"
+    return ", ".join(str(r) for r in search_roots()) or "(none)"

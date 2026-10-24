@@ -161,6 +161,11 @@ workspaces = [
     "C:/Users/oguzo/OneDrive/Desktop/Mhendislik/Projects",
     "C:/Users/oguzo/OneDrive/Desktop/personnal_assistant",
 ]
+# Folders it may also find and read in, that are not folders of projects.
+# The same rules apply: read only, and credentials refused.
+folders = [
+    "C:/Users/oguzo/OneDrive/Desktop",
+]
 # How many times the model may call a skill and be handed the result before it
 # has to answer. Without a ceiling, a model that misreads a result will call
 # the same skill forever.

@@ -241,6 +241,28 @@ search for "tomorrow" every time — by making `todoist_search` treat a date
 word as the date filter it obviously is. "Are you listening all the time?"
 still sometimes gets an answer from the model without calling `listening`.
 
+### Finding a file on the desktop
+
+2026-10-24. The whole desktop, OneDrive-backed, projects included.
+
+| Search | Walking with `rglob` | Windows Search index |
+|---|---|---|
+| a folder by name (`Dersler`) | 42.3 s | 0.97 s |
+| a word (`RAG`) | 19.0 s | 1.04 s |
+| something that does not exist | 15.0 s | — |
+
+Excluding folders such as `node_modules` inside the index query, rather than
+afterwards, took every search to 19 s; it is filtered afterwards instead.
+
+The index had skipped the Talos project entirely. `find_file` also looks
+directly at the top of every root and every project, which is a few hundred
+names and covers it.
+
+One finding beyond speed: given `Projects/Talos\README.md` — forward slashes
+from the root, backslashes after — `qwen3:8b` ended the turn without a word in
+3 of 6 tries instead of reading the file. With forward slashes throughout,
+0 of 10.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the
