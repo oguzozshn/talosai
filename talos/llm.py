@@ -19,6 +19,7 @@ import ollama
 from talos.config import AssistantConfig, LlmConfig
 from talos.coach import CONVERSATION, correction_for
 from talos.memory import Exchange, Memory, embed, load_profile
+from talos.router import Router
 from talos.session import current as session
 from talos.skills import ConfirmFn, Registry
 
@@ -127,6 +128,7 @@ class Brain:
         confirm: ConfirmFn | None = None,
         max_rounds: int = 3,
         memory: Memory | None = None,
+        router: Router | None = None,
     ) -> None:
         self._config = config
         self._assistant = assistant
@@ -135,6 +137,10 @@ class Brain:
         self._confirm = confirm
         self._max_rounds = max_rounds
         self._memory = memory
+        self._router = router
+        # The skills offered to the model this turn, or None for all of them.
+        # Chosen once per request, from the request: see talos/router.py.
+        self.last_offered: list[str] | None = None
         self._history: list[dict[str, str]] = []
         # A running précis of what fell out of the window. Kept per session:
         # anything older than that is in the database and reachable by recall.
@@ -276,7 +282,9 @@ class Brain:
     def _tools(self) -> list[dict] | None:
         if self._registry is None or not len(self._registry):
             return None
-        return self._registry.schemas()
+        if self.last_offered is None:
+            return self._registry.schemas()
+        return [self._registry.get(name).schema() for name in self.last_offered]
 
     def _record_if_asked(self, prompt: str, messages: list[dict]) -> None:
         """Write the note when told to remember something, whatever the model thinks.
@@ -343,6 +351,7 @@ class Brain:
         self.last_tool_results = []
         self.last_thinking = ""
         self.last_rounds = 0
+        self.last_offered = self._router.choose(prompt) if self._router else None
         self._record_if_asked(prompt, messages)
 
         for round_number in range(self._max_rounds + 1):
@@ -427,6 +436,8 @@ class Brain:
                 messages.append({"role": "tool", "name": name, "content": result})
 
         self.last_rounds = round_number + 1
+        if self._router is not None:
+            self._router.used([name for name, _ in self.last_tool_calls])
 
         # After the conversation, never inside it. The reply is already being
         # spoken by the time this runs, so the second call costs nothing the

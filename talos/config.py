@@ -122,6 +122,11 @@ class SkillsConfig:
     # before it has to answer. Without a ceiling, a model that misreads a
     # result can call the same skill forever.
     max_rounds: int = 3
+    # Offer the model only the skills closest to each request, plus a few
+    # always-on ones, instead of all of them. See talos/router.py.
+    router: bool = True
+    # How many of the closest skills to offer.
+    router_top: int = 6
 
 
 @dataclass(frozen=True)

@@ -18,6 +18,11 @@ def send_file(path: str) -> str:
 
     Args:
         path: The file, as find_file gave it
+
+    Examples:
+        send me the Requirements PDF from Dersler
+        send my CV to my phone
+        bu dosyayı telefonuma gönder
     """
     bot = telegram.active()
     if bot is None:

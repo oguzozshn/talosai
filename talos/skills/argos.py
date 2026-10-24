@@ -224,6 +224,11 @@ def study_progress(plan: str = "") -> str:
 
     Args:
         plan: Part of a plan's name, such as a course; empty for all plans
+
+    Examples:
+        how much study time is left for the midterm
+        how am I doing on game programming
+        vizeye kaç saat kaldı
     """
     data = _data_dir()
     return NOT_FOUND if data is None else plan_progress(data, plan, date.today())
@@ -231,6 +236,12 @@ def study_progress(plan: str = "") -> str:
 
 @skill(Permission.OPEN)
 def goals() -> str:
-    """List the owner's long-term goals and the things they asked Argos to remember."""
+    """List the owner's long-term goals and the things they asked Argos to remember.
+
+    Examples:
+        what are my long-term goals
+        what did I want to remember in Argos
+        hedeflerim neler
+    """
     data = _data_dir()
     return NOT_FOUND if data is None else goals_and_reminders(data)

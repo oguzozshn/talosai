@@ -21,6 +21,7 @@ from talos.config import Config
 from talos.devices import resolve
 from talos.llm import Brain
 from talos.memory import Memory
+from talos.router import Router
 from talos.session import current as session
 from talos.skills import ConfirmFn, Registry
 from talos.skills import load as load_skills
@@ -75,6 +76,8 @@ class Turn:
     # What was said back, in full. Spoken turns print and speak it as it
     # streams; a Telegram turn sends this.
     reply: str = ""
+    # The skills the router offered, or None when all of them were.
+    offered: list[str] | None = None
 
     def diagnostic(self) -> str:
         """Everything a plain run does not show: heard, thought, called, got back.
@@ -85,6 +88,8 @@ class Turn:
         whether it gets printed at all.
         """
         lines = [f'  heard      "{self.heard}"']
+        if self.offered is not None:
+            lines.append(f"  offered    {', '.join(self.offered)}")
         if self.note:
             lines.append(f"  note       {self.note}")
         if self.thinking:
@@ -128,6 +133,11 @@ class Assistant:
             config.audio.sample_rate,
             workspaces=[Path(w).expanduser() for w in config.skills.workspaces],
         )
+        self.router = (
+            Router(self.skills, top=config.skills.router_top)
+            if self.skills is not None and config.skills.router
+            else None
+        )
         self.brain = Brain(
             config.llm,
             config.assistant,
@@ -136,6 +146,7 @@ class Assistant:
             confirm=confirm,
             max_rounds=config.skills.max_rounds,
             memory=self.memory,
+            router=self.router,
         )
 
         self.voice: Voice | None = None
@@ -166,6 +177,10 @@ class Assistant:
         and all of it would otherwise land on the user's first sentence.
         """
         self.ears.warm_up()
+        if self.router is not None:
+            # Needs the embedding model, so it happens here rather than in
+            # __init__. If it fails, every skill is offered, as before.
+            self.router.prepare()
         self.brain.warm_up()
         if self.voice is not None:
             self.voice.warm_up()
@@ -199,6 +214,7 @@ class Assistant:
                 timings=timings,
                 thinking=self.brain.last_thinking,
                 tool_calls=self._tool_calls(),
+            offered=self.brain.last_offered,
                 reply=reply,
             )
 
@@ -225,6 +241,7 @@ class Assistant:
                 timings=timings,
                 thinking=self.brain.last_thinking,
                 tool_calls=self._tool_calls(),
+            offered=self.brain.last_offered,
                 reply=" ".join(sentences),
             )
 
@@ -265,6 +282,7 @@ class Assistant:
             note=note,
             thinking=self.brain.last_thinking,
             tool_calls=self._tool_calls(),
+            offered=self.brain.last_offered,
             reply=reply,
         )
 

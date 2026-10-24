@@ -12,6 +12,11 @@ def english_practice(on: bool = True) -> str:
 
     Args:
         on: true to start practising, false to stop
+
+    Examples:
+        let's practise my English
+        stop the English practice
+        İngilizce pratik yapalım
     """
     if on:
         if current.coaching:

@@ -55,6 +55,12 @@ def web_search(query: str, limit: int = 3) -> str:
     Args:
         query: What to look up
         limit: How many results to report, at most
+
+    Examples:
+        how many people live in the world
+        search the web for the latest Python release
+        what is RAG
+        internette ara
     """
     query = query.strip()
     if not query:

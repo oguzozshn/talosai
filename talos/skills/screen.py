@@ -75,6 +75,11 @@ def read_screen(monitor: int = 1, language: str = "") -> str:
     Args:
         monitor: Which screen to read, 1 for the main one
         language: Override the recognition language, such as eng or tur
+
+    Examples:
+        what's on my screen
+        what does this word on my screen mean
+        ekranda ne yazıyor
     """
     binary = _tesseract()
     if binary is None:

@@ -64,6 +64,10 @@ class Skill:
     permission: Permission
     function: Callable[..., str]
     parameters: dict = field(default_factory=dict)
+    # Things a person would say to want this skill. Never sent to the model:
+    # the router matches requests against them, and about_me reads them out
+    # when asked how to use something.
+    examples: tuple[str, ...] = ()
 
     def schema(self) -> dict:
         """The tool definition, in the shape Ollama expects."""
@@ -77,28 +81,37 @@ class Skill:
         }
 
 
-def _split_docstring(doc: str) -> tuple[str, dict[str, str]]:
-    """Return the summary and the documented argument descriptions."""
+def _split_docstring(doc: str) -> tuple[str, dict[str, str], tuple[str, ...]]:
+    """Return the summary, the documented argument descriptions, and the examples."""
     lines = doc.strip().splitlines()
     summary: list[str] = []
     args: dict[str, str] = {}
-    in_args = False
+    examples: list[str] = []
+    section = "summary"
 
     for line in lines:
         stripped = line.strip()
         if stripped.lower() in {"args:", "arguments:", "parameters:"}:
-            in_args = True
+            section = "args"
             continue
-        if in_args:
+        if stripped.lower() == "examples:":
+            section = "examples"
+            continue
+        if section != "summary" and stripped and not line.startswith((" ", "\t")):
+            # An unindented line ends a section, and is not part of the
+            # summary either.
+            section = "ended"
+        if section == "args":
             match = _ARG_LINE.match(line)
             if match:
                 args[match.group(1)] = match.group(2).strip()
-            elif stripped and not line.startswith((" ", "\t")):
-                in_args = False
-        elif stripped:
+        elif section == "examples":
+            if stripped:
+                examples.append(stripped)
+        elif section == "summary" and stripped:
             summary.append(stripped)
 
-    return " ".join(summary), args
+    return " ".join(summary), args, tuple(examples)
 
 
 def _json_type(annotation: typing.Any) -> str:
@@ -136,7 +149,7 @@ def skill(permission: Permission = Permission.OPEN, *, name: str | None = None):
 
     def decorator(function: Callable[..., str]) -> Callable[..., str]:
         doc = inspect.getdoc(function) or ""
-        summary, arg_descriptions = _split_docstring(doc)
+        summary, arg_descriptions, examples = _split_docstring(doc)
         if not summary:
             raise ValueError(
                 f"Skill '{function.__name__}' needs a docstring. It is what the "
@@ -149,6 +162,7 @@ def skill(permission: Permission = Permission.OPEN, *, name: str | None = None):
             permission=permission,
             function=function,
             parameters=_build_parameters(function, arg_descriptions),
+            examples=examples,
         )
         return function
 

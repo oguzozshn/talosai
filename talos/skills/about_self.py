@@ -84,6 +84,13 @@ def about_me(topic: str = "skills") -> str:
 
     Args:
         topic: "skills" for what Talos can do, an area such as projects or Todoist for detail, "how" for how it works, "limits" for what it is bad at
+
+    Examples:
+        what can you do
+        how do you work
+        what are you bad at
+        what can you do with Todoist
+        neler yapabilirsin
     """
     wanted = topic.strip().casefold()
     if wanted in {"skills", "skill", "abilities", "everything", "all"}:

@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT))
 
 from talos.config import load  # noqa: E402
 from talos.llm import Brain  # noqa: E402
+from talos.router import Router  # noqa: E402
 from talos.skills import Registry  # noqa: E402
 from talos.skills import load as load_skills  # noqa: E402
 
@@ -89,7 +90,9 @@ class Score:
         return statistics.median(self.latencies) if self.latencies else 0.0
 
 
-def evaluate(model: str, registry: Registry, repeat: int, context: int | None = None) -> Score:
+def evaluate(
+    model: str, registry: Registry, repeat: int, context: int | None = None, router: Router | None = None
+) -> Score:
     config = load()
     llm = replace(config.llm, model=model, context=context or config.llm.context)
     score = Score(model=model)
@@ -101,7 +104,9 @@ def evaluate(model: str, registry: Registry, repeat: int, context: int | None = 
         for _ in range(repeat):
             # A fresh brain per case: history would let an earlier answer
             # decide a later one, and each case is meant to stand alone.
-            brain = Brain(llm, config.assistant, config.character, registry=registry)
+            if router is not None:
+                router.reset()
+            brain = Brain(llm, config.assistant, config.character, registry=registry, router=router)
 
             started = time.perf_counter()
             try:
@@ -153,16 +158,24 @@ def main() -> int:
     parser.add_argument("--models", nargs="+", default=["qwen3:8b", "gemma3:4b", "llama3.1:8b"])
     parser.add_argument("--repeat", type=int, default=1, help="runs per case")
     parser.add_argument("--context", type=int, help="num_ctx, instead of the one in settings")
+    parser.add_argument("--router", action="store_true", help="offer only the skills the router picks")
     args = parser.parse_args()
 
     registry = load_skills()
     print(f"{len(registry)} skills: {', '.join(registry.names)}")
     print(f"{len(CASES)} cases, {args.repeat} run(s) each")
 
+    router = None
+    if args.router:
+        router = Router(registry, top=load().skills.router_top)
+        if not router.prepare():
+            print("Could not embed the skills for the router.")
+            return 1
+
     scores = []
     for model in args.models:
         try:
-            scores.append(evaluate(model, registry, args.repeat, args.context))
+            scores.append(evaluate(model, registry, args.repeat, args.context, router))
         except Exception as exc:  # noqa: BLE001
             print(f"\n{model}: could not evaluate — {exc}")
 

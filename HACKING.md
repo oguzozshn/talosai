@@ -117,6 +117,10 @@ def weather_today(city: str = "Istanbul") -> str:
 
     Args:
         city: Which city to look up
+
+    Examples:
+        will it rain today
+        hava nasıl
     """
     return f"It is probably raining in {city}."
 ```
@@ -130,6 +134,14 @@ it. That is the whole process.
 what the model reads to decide whether to call your skill, and the `Args:`
 lines describe each parameter. A vague summary produces a skill that is called
 at the wrong times, or never.
+
+**`Examples:` decide whether it is offered at all.** The model does not see
+every skill on every request: `talos/router.py` offers the few closest in
+meaning to what was said, plus four that are always there. The examples are
+what a request is matched against, and they never reach the model's prompt, so
+write the things a person would actually say — in Turkish too. Then run
+`run scripts\check_router.py` and add a case for the new skill; a skill the
+router never offers is a skill that does not exist.
 
 **Type hints become the schema.** `str`, `int`, `float`, `bool` map to JSON
 types. Arguments are coerced before your function sees them — models send

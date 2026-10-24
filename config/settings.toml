@@ -170,6 +170,11 @@ folders = [
 # has to answer. Without a ceiling, a model that misreads a result will call
 # the same skill forever.
 max_rounds = 3
+# Offer the model only the skills closest in meaning to each request, plus a
+# few that are always there, rather than all of them. Fewer choices for a small
+# model, and a shorter prompt. Off offers everything, as before.
+router = true
+router_top = 6
 
 [todoist]
 # Deliberately empty, and it should stay that way. Put the token in

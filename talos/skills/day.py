@@ -73,6 +73,13 @@ def my_day(day: str = "today") -> str:
 
     Args:
         day: today, tomorrow, a day name such as Friday, a date as YYYY-MM-DD, or week
+
+    Examples:
+        what's on my plate today
+        what's next
+        how does my week look
+        what's due tomorrow
+        bugün ne yapmam lazım
     """
     if day.strip().casefold() in {"week", "this week", "hafta", "bu hafta"}:
         # The planner falls back to the latest week it has, which answers

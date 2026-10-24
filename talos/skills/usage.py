@@ -61,6 +61,11 @@ def app_usage(app: str = "", period: str = "today", limit: int = 5) -> str:
         app: One application to ask about, such as Chrome; empty for the most used
         period: "today" for since midnight, "week" for the last 7 days
         limit: how many applications to include, most-used first
+
+    Examples:
+        how long was I in Chrome today
+        which apps did I use most this week
+        bugün bilgisayarda ne kadar vakit geçirdim
     """
     if app.strip():
         return _time_in_app(app, period)

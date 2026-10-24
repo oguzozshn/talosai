@@ -25,6 +25,12 @@ def listening(switch: str = "") -> str:
 
     Args:
         switch: "on" to listen continuously, "off" to listen only on the hotkey, empty to report which it is
+
+    Examples:
+        stop listening for a while
+        are you listening all the time
+        start listening again
+        dinlemeyi bırak
     """
     wanted = switch.strip().casefold()
 

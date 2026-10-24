@@ -99,6 +99,12 @@ def find_file(pattern: str) -> str:
 
     Args:
         pattern: A name, a few words from it, or a glob, such as Dersler, README.md or *.csproj; put a folder first to look only inside it, as Talos/README.md
+
+    Examples:
+        where is my Dersler folder
+        find the README in Talos
+        which PDFs are in Dersler
+        motivasyon mektubum nerede
     """
     # "Talos/README.md": the last part is the name, the rest are folders the
     # match must be inside. Without this, the README of whichever of 36
@@ -164,6 +170,11 @@ def read_file(path: str) -> str:
 
     Args:
         path: Path to the file, as find_file gave it
+
+    Examples:
+        read the README in Talos
+        what does the config file say
+        dosyayı oku
     """
     try:
         target = resolve(path)
@@ -195,6 +206,11 @@ def show_in_explorer(path: str) -> str:
 
     Args:
         path: The folder or file, as find_file gave it
+
+    Examples:
+        open the Dersler folder
+        show me the Talos project in Explorer
+        klasörü aç
     """
     try:
         # Showing where a file is reads nothing from it, so credentials are

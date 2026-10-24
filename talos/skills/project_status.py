@@ -32,6 +32,10 @@ def list_projects(limit: int = 25) -> str:
 
     Args:
         limit: How many to list at most
+
+    Examples:
+        list my projects
+        what projects do I have
     """
     names: list[str] = []
     for root in WORKSPACES:
@@ -60,6 +64,10 @@ def project_status(project: str) -> str:
 
     Args:
         project: Folder name of the project, for example RatchetSync
+
+    Examples:
+        what's the status of the Talos project
+        any uncommitted changes in BACnet
     """
     try:
         repo = resolve(project)
@@ -102,6 +110,10 @@ def recent_work(days: int = 7, limit: int = 10) -> str:
     Args:
         days: How many days back to look
         limit: How many projects to report at most
+
+    Examples:
+        what have I worked on recently
+        which projects did I touch this week
     """
     candidates: list[Path] = []
     for root in WORKSPACES:

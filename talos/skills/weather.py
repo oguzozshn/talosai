@@ -97,6 +97,11 @@ def weather(place: str = DEFAULT_PLACE) -> str:
 
     Args:
         place: Town or city. Defaults to Istanbul.
+
+    Examples:
+        what's the weather like
+        will it rain in Istanbul today
+        hava nasıl
     """
     place = place.strip() or DEFAULT_PLACE
     try:

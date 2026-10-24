@@ -148,6 +148,10 @@ def todoist_search(about: str, limit: int = 5) -> str:
     Args:
         about: Word or phrase to look for
         limit: How many matches to read out
+
+    Examples:
+        find my Todoist task about the dentist
+        what's due in Todoist tomorrow
     """
     needle = about.strip().casefold()
     if not needle:
@@ -178,6 +182,10 @@ def todoist_add(content: str, due: str = "") -> str:
     Args:
         content: What the task says
         due: When it is due, in plain words such as "tomorrow" or "next Friday"
+
+    Examples:
+        add buy milk to Todoist
+        remind me in Todoist to call mom tomorrow
     """
     content = content.strip()
     if not content:
@@ -203,6 +211,10 @@ def todoist_complete(about: str) -> str:
 
     Args:
         about: Enough of the task's text to identify it
+
+    Examples:
+        mark the dentist task as done
+        I finished the laundry task
     """
     needle = about.strip().casefold()
     if not needle:

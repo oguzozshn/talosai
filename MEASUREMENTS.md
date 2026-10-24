@@ -263,6 +263,38 @@ from the root, backslashes after — `qwen3:8b` ended the turn without a word in
 3 of 6 tries instead of reading the file. With forward slashes throughout,
 0 of 10.
 
+### Offering only the closest skills: the router
+
+2026-10-24, 25 skills. `talos/router.py` embeds each skill's name, description
+and examples once with `nomic-embed-text`, which memory already keeps loaded,
+and offers the six closest to each request plus four always-on ones.
+
+Recall, `scripts/check_router.py` — 32 requests worded unlike any example, three
+of them Turkish; did the needed skill make the cut?
+
+| Closest offered | Recall | Skills offered per request |
+|---|---|---|
+| 1 | 22/32 | 4-5 |
+| 2 | 28/32 | 4-6 |
+| 4 | 32/32 | 6-8 |
+| **6** (setting) | **32/32** | 6-10 |
+| 8 | 32/32 | 8-12 |
+
+Six rather than four for the margin: the misses at 1 and 2 were neighbours —
+`recall` against `read_notes`, `read_file` against `show_in_explorer` — and new
+skills will crowd them further.
+
+| | Router off | Router on |
+|---|---|---|
+| Prompt before the question | 2999 tokens | 1907 (one request, 8 skills) |
+| `compare_models.py`, 36 cases | 36/36, median 1.44 s | 36/36, median 1.29 s |
+| Choosing, per request | — | 16 ms |
+
+On seventeen wider cases, routed, 15/17 the first time: "What can you do?" and
+"What are you bad at?" answered without calling `about_me`, although it was
+offered. Run again in the same order, 22/22 — no miss repeated, and unrouted
+both were 5/5. Noted rather than explained.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the

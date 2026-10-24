@@ -28,6 +28,11 @@ def take_note(text: str) -> str:
 
     Args:
         text: What to record, in the owner's own words
+
+    Examples:
+        remember that the deploy key expires in March
+        take a note to call the bank
+        not al
     """
     text = text.strip()
     if not text:
@@ -50,6 +55,11 @@ def read_notes(limit: int = 10, contains: str = "") -> str:
     Args:
         limit: How many notes to return, most recent first
         contains: Only return notes containing this word
+
+    Examples:
+        read my notes
+        what did I note about the parser
+        notlarımı oku
     """
     if not NOTES.exists():
         return "There are no notes yet."

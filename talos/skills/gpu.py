@@ -49,7 +49,12 @@ def _vram() -> tuple[int, int] | None:
 # thing being asked for.
 @skill(Permission.OPEN)
 def release_gpu() -> str:
-    """Unload the language model to free graphics memory for something else."""
+    """Unload the language model to free graphics memory for something else.
+
+    Examples:
+        free up the graphics card
+        let go of the GPU, I want to play a game
+    """
     import ollama
 
     try:

@@ -34,6 +34,11 @@ def recall(about: str, limit: int = 3) -> str:
     Args:
         about: What to look for, in a few words
         limit: How many past exchanges to return
+
+    Examples:
+        what did I say about BACnet
+        do you remember what I told you about the deadline
+        geçen sefer ne konuşmuştuk
     """
     about = about.strip()
     if not about:
@@ -60,6 +65,10 @@ def last_conversations(limit: int = 3) -> str:
 
     Args:
         limit: How many recent exchanges to return
+
+    Examples:
+        what were we talking about earlier
+        what did we discuss last time
     """
     exchanges = _memory.recent(limit)
     if not exchanges:
