@@ -106,3 +106,30 @@ class TestStaysQuiet:
         # two accepts "tables", so the words that collide are excluded by name.
         # That list is finishable, unlike the list of misspellings.
         assert strip_wake_word(heard) is None
+
+
+class TestTheListenerItself:
+    """Built for real, not stubbed. Adding hold() once deleted the line that
+    made `vad` a property; every test here passed, and wake mode died on the
+    first sound it heard."""
+
+    @pytest.fixture
+    def listener(self):
+        from talos.config import load
+        from talos.wake import WakeListener
+
+        config = load()
+        return WakeListener(config.audio, config.wake, lambda audio: "")
+
+    def test_voice_activity_detection_loads(self, listener):
+        import numpy as np
+        import torch
+
+        silence = torch.from_numpy(np.zeros(512, dtype=np.float32))
+        assert 0.0 <= listener.vad(silence, 16000).item() <= 1.0
+
+    def test_holding_ignores_the_microphone_and_drains_after(self, listener):
+        with listener.hold():
+            assert listener._holding.is_set()
+        assert not listener._holding.is_set()
+        assert listener._spoke

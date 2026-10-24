@@ -204,6 +204,9 @@ class WakeListener:
         finally:
             self._holding.clear()
             self._spoke = True
+
+    @property
+    def vad(self):
         if self._vad is None:
             from silero_vad import load_silero_vad
 
