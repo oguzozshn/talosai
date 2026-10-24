@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 from talos.skills._workspace import WORKSPACES
@@ -80,59 +80,11 @@ def _active_week() -> dict | None:
     return max(weeks, key=lambda w: (w.get("yil", 0), w.get("hafta", 0)))
 
 
-def _day_number(week: dict, when: str) -> tuple[int | None, str]:
-    """Resolve 'today', 'tomorrow' or a day name to a day number in this week."""
-    wanted = when.strip().lower()
-    days = week.get("gunler", [])
-
-    if wanted in {"", "today", "bugun", "bugün"}:
-        target = date.today()
-    elif wanted in {"tomorrow", "yarin", "yarın"}:
-        target = date.today() + timedelta(days=1)
-    elif wanted in DAY_NAMES:
-        number = DAY_NAMES[wanted]
-        match = next((d for d in days if d.get("no") == number), None)
-        return number, str(match.get("ad", wanted)) if match else wanted
-    else:
-        return None, wanted
-
-    iso = target.isoformat()
-    for day in days:
-        if str(day.get("isoTarih")) == iso:
-            return int(day.get("no", 0)), str(day.get("ad", iso))
-    return None, target.strftime("%A")
-
-
 def _slot_line(slot: dict) -> str:
     status = STATUS_WORDS.get(str(slot.get("durum", "")).lower(), str(slot.get("durum", "")))
     minutes = slot.get("sureDk")
     length = f", {minutes} minutes" if minutes else ""
     return f"{slot.get('saat', '')} {slot.get('alan', '')} — {slot.get('konu', '')}{length} ({status})"
-
-
-@skill(Permission.OPEN)
-def todays_plan(day: str = "today") -> str:
-    """Report what the weekly plan says is scheduled, for today or another day.
-
-    Args:
-        day: Which day — today, tomorrow, or a day name such as Friday
-    """
-    week = _active_week()
-    if week is None:
-        return "I can't find a weekly plan file."
-
-    number, label = _day_number(week, day)
-    if number is None:
-        return f"'{day}' isn't a day in {week.get('baslik', 'this week')}."
-
-    slots = [s for s in week.get("slotlar", []) if s.get("gun") == number]
-    if not slots:
-        return f"Nothing is scheduled for {label}."
-
-    slots.sort(key=lambda s: str(s.get("saat", "")))
-    lines = [f"{label} has {len(slots)} slot(s):"]
-    lines += [f"  {_slot_line(s)}" for s in slots]
-    return "\n".join(lines)
 
 
 @skill(Permission.OPEN)

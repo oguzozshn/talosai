@@ -62,11 +62,19 @@ Adding and completing ask first. Reading does not.
 
 ### Your week
 
-Reads the plan the personal assistant project already writes.
+Reads what Argos, the planner, already keeps: the weekly plan, study plans,
+tasks, goals and the things you asked it to remember. Read only — Argos
+checks its files before saving, and a write from here would look to it like a
+conflict you caused.
 
-> "What's on today?"
+> "What's on my plate today?"
+> "What's on Friday?"
 > "What's next?"
 > "How does this week look?"
+> "How much is left for the Requirements midterm?"
+> "What are my goals?"
+
+Todoist tasks come from Todoist itself, not from Argos's copy of them.
 
 ### Notes and memory
 

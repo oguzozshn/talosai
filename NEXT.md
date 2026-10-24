@@ -89,9 +89,9 @@ rather than tuning the benchmark until it passes.
   verified voice, there is none, and it behaves exactly like `CONFIRM`. A tier
   that never differs from another tier is noise in the API. Move
   `undo_changes` to `CONFIRM` and remove the tier.
-- Consider merging `todays_plan`, `whats_next` and `weekly_plan` into one
-  skill with an argument. Three skills for one question is three chances to
-  pick the wrong one.
+- Consider merging `whats_next` and `weekly_plan` into `my_day`, which
+  replaced `todays_plan`. Fewer skills for one question means fewer chances
+  to pick the wrong one, and the prompt is at 3.6k of 4096 tokens.
 
 Keep `scripts/make_wake_samples.py`, `train_wake_word.py` and
 `test_wake_word.py` — they are a documented, measured, parked option and
