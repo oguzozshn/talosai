@@ -37,10 +37,9 @@ import unicodedata
 from collections.abc import Iterator
 
 import numpy as np
-import sounddevice as sd
 
 from talos.config import AudioConfig, WakeConfig
-from talos.devices import refresh, resolve
+from talos.devices import InputSelector, refresh
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +75,13 @@ _NOT_THE_NAME = {
     "halos", "solos", "sales", "males", "males", "salad", "tall", "tabs",
     "titles", "tiles", "tanks", "tapes", "tastes", "days", "class",
 }
+
+# How often to try the pinned microphone again while the default stands in
+# for it. The stream is only reopened when it dies, and the default does not
+# die when the headset comes back, so without this the headset would not be
+# used again until a restart. Each try closes the stream for a moment, which
+# is why it only happens between utterances and not more often than this.
+_RETRY_PINNED_SECONDS = 30.0
 
 
 def _distance(a: str, b: str) -> int:
@@ -158,11 +164,20 @@ def strip_wake_word(text: str) -> str | None:
 class WakeListener:
     """Streams microphone audio, yielding the command after each wake word."""
 
-    def __init__(self, audio: AudioConfig, wake: WakeConfig, transcribe) -> None:
+    def __init__(self, audio: AudioConfig, wake: WakeConfig, transcribe, announce=None) -> None:
         self._audio = audio
         self._wake = wake
         self._transcribe = transcribe
-        self._device = resolve(audio.input_device, kind="input")
+        # announce(message) tells the person about the microphone: that the
+        # pinned one dropped out or came back, or that none works at all.
+        self._announce = announce
+        self._microphone = InputSelector(audio.input_device, self._say)
+        # Set when something was said while the stream was open, so the
+        # listening loop knows to discard its own voice coming back.
+        self._spoke = False
+        # True from the first failed open until one succeeds, so "no
+        # microphone" is said once rather than every two seconds.
+        self._no_microphone = False
         self._vad = None
         self._stop = threading.Event()
         # Set while listen() is running, so a confirmation can be collected
@@ -182,6 +197,33 @@ class WakeListener:
 
     def stop(self) -> None:
         self._stop.set()
+
+    def _say(self, message: str) -> None:
+        if self._announce is not None:
+            self._announce(message)
+            self._spoke = True
+
+    def _drain(self, chunks: queue.Queue) -> None:
+        """Discard what the microphone picked up while Talos was speaking.
+
+        Draining once is not enough: the last of the reply is still
+        travelling from the speaker to the microphone when the queue first
+        reads as empty, and arrives a moment later as a short utterance that
+        transcribes to nothing. So it waits a fixed span, not "until the
+        queue stays empty": the callback delivers a block every 32 ms, so a
+        loop that waits for emptiness never ends.
+        """
+        settle_until = time.monotonic() + self._wake.settle_seconds
+        while time.monotonic() < settle_until:
+            try:
+                chunks.get(timeout=0.05)
+            except queue.Empty:
+                pass
+        while not chunks.empty():
+            try:
+                chunks.get_nowait()
+            except queue.Empty:
+                break
 
     def ask(self, timeout: float = 8.0, hint: str = "yes no") -> str:
         """Capture and transcribe one short reply, for a confirmation.
@@ -264,6 +306,8 @@ class WakeListener:
         awake_until = 0.0
         # Consecutive half-seconds with no audio delivered at all.
         starved = 0
+        # When to next try the pinned microphone, if the default is in use.
+        retry_pinned_at = time.monotonic() + _RETRY_PINNED_SECONDS
         # When the current utterance began. Zero means none is in progress.
         speech_started = 0.0
         # Silence long enough to mean the sentence ended rather than a pause
@@ -273,24 +317,45 @@ class WakeListener:
 
         import torch
 
-        stream = self._open_stream(rate, chunk, callback)
+        # Through _reopen, so a first open that fails is handled like a
+        # microphone lost later: said once and retried, instead of a crash
+        # before the assistant has heard a word.
+        stream = self._reopen(None, rate, chunk, callback)
         try:
             log.info("listening for '%s'", self._wake.word)
             while not self._stop.is_set():
+                if self._spoke:
+                    # A notice about the microphone was just spoken into it.
+                    self._drain(chunks)
+                    self._spoke = False
+                    speech, silence_chunks, speech_started = [], 0, 0.0
+
                 try:
                     block = chunks.get(timeout=0.5)
                 except queue.Empty:
                     # No audio at all, not even silence. The callback should
                     # deliver a block every 32 ms, so this means the stream has
                     # stopped — almost always because the microphone it was
-                    # opened on was unplugged.
+                    # opened on was unplugged — or that none could be opened.
                     starved += 1
                     if starved >= 4:
-                        log.warning("no audio for 2s, reopening the microphone")
+                        if stream is not None:
+                            log.warning("no audio for 2s, reopening the microphone")
                         stream = self._reopen(stream, rate, chunk, callback)
                         starved = 0
                     continue
                 starved = 0
+
+                now = time.monotonic()
+                if (
+                    self._microphone.fallen_back
+                    and not speech
+                    and now >= awake_until
+                    and now >= retry_pinned_at
+                ):
+                    retry_pinned_at = now + _RETRY_PINNED_SECONDS
+                    stream = self._reopen(stream, rate, chunk, callback)
+                    continue
 
                 with torch.no_grad():
                     speech_probability = self.vad(torch.from_numpy(block), rate).item()
@@ -359,26 +424,8 @@ class WakeListener:
                 # Whatever was captured while the caller was answering is the
                 # assistant's own voice coming back through the microphone, or
                 # the user waiting. Either way it is not the next command.
-                #
-                # Draining once is not enough: the last of the reply is still
-                # travelling from the speaker to the microphone when the queue
-                # first reads as empty, and arrives a moment later as a short
-                # utterance that transcribes to nothing. Keep draining until
-                # the queue has stayed empty for a beat.
-                # A fixed span, not "until the queue stays empty": the callback
-                # delivers a block every 32 ms, so a loop that waits for
-                # emptiness never ends.
-                settle_until = time.monotonic() + self._wake.settle_seconds
-                while time.monotonic() < settle_until:
-                    try:
-                        chunks.get(timeout=0.05)
-                    except queue.Empty:
-                        pass
-                while not chunks.empty():
-                    try:
-                        chunks.get_nowait()
-                    except queue.Empty:
-                        break
+                self._drain(chunks)
+                self._spoke = False
 
                 speech, silence_chunks, speech_started = [], 0, 0.0
 
@@ -400,15 +447,13 @@ class WakeListener:
 
         Resolved here rather than once in __init__: a device index that was
         right at startup points at nothing after the headset it named is
-        unplugged.
+        unplugged. The pinned device is tried first every time, and the
+        system default stands in when it cannot be opened.
         """
-        self._device = resolve(self._audio.input_device, kind="input")
-        stream = sd.InputStream(
+        return self._microphone.open(
             samplerate=rate, channels=1, dtype="float32",
-            callback=callback, blocksize=chunk, device=self._device,
+            callback=callback, blocksize=chunk,
         )
-        stream.start()
-        return stream
 
     @staticmethod
     def _close(stream) -> None:
@@ -432,10 +477,18 @@ class WakeListener:
         refresh()
         try:
             reopened = self._open_stream(rate, chunk, callback)
-            log.info("microphone reopened")
-            return reopened
         except Exception as exc:  # noqa: BLE001
-            # Nothing usable right now. Returning None keeps the loop alive so
-            # it can try again when something is plugged back in.
-            log.warning("no microphone available: %s", exc)
+            # Nothing usable right now, not even the default. Returning None
+            # keeps the loop alive so it can try again when something is
+            # plugged back in.
+            if not self._no_microphone:
+                self._no_microphone = True
+                log.warning("no microphone available: %s", exc)
+                self._say("I can't find a working microphone. I'll keep trying.")
             return None
+        log.debug("microphone opened")
+        if self._no_microphone:
+            self._no_microphone = False
+            log.warning("a microphone is available again")
+            self._say("I can hear you again.")
+        return reopened

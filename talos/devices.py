@@ -54,6 +54,26 @@ def _matches(device: dict, wanted: str) -> bool:
     return wanted.casefold() in str(device.get("name", "")).casefold()
 
 
+# The same microphone is listed once per Windows audio API, and the APIs are
+# not equally trustworthy. WDM-KS keeps listing a Bluetooth headset that is
+# paired but switched off, long after MME and WASAPI have dropped it, so the
+# only match left for a headset in its case is one that cannot be opened. MME
+# goes first because it resamples: WASAPI in shared mode refuses 16 kHz unless
+# the device happens to run at it. Anything not named here goes last.
+_HOST_API_ORDER = ("MME", "Windows DirectSound", "Windows WASAPI", "Windows WDM-KS")
+
+
+def _host_api_rank(device: dict) -> int:
+    try:
+        name = sd.query_hostapis(device["hostapi"])["name"]
+    except Exception:  # noqa: BLE001 — an unknown API ranks last, not fatally
+        return len(_HOST_API_ORDER)
+    try:
+        return _HOST_API_ORDER.index(name)
+    except ValueError:
+        return len(_HOST_API_ORDER)
+
+
 def resolve(wanted: str | int | None, *, kind: str) -> int | None:
     """Turn a config value into a device index. None means the system default.
 
@@ -84,6 +104,9 @@ def resolve(wanted: str | int | None, *, kind: str) -> int | None:
         raise DeviceNotFound(
             f"No {kind} device matching '{wanted}'. Run: run main.py --devices"
         )
+    # Stable, so enumeration order still decides between two entries on the
+    # same API.
+    candidates.sort(key=lambda i: _host_api_rank(devices[i]))
     if len(candidates) > 1:
         names = ", ".join(f"{i}: {devices[i]['name']}" for i in candidates[:4])
         # Once per ambiguity, not once per recording. resolve() runs again on
@@ -121,6 +144,100 @@ def resolve_or_default(wanted: str | int | None, *, kind: str) -> int | None:
             log.warning("%s — falling back to the system default %s", exc, kind)
             _warned_missing = (wanted, kind)
         return None
+
+
+class InputSelector:
+    """Opens the pinned microphone, or the system default when it cannot.
+
+    Pinned means preferred, not required. A pinned device is unusable in two
+    ways, and resolve_or_default() only covers the first: it is not listed at
+    all, or it is listed and refuses to open. A Bluetooth headset that is
+    paired but in its case is the second — Windows keeps listing it, and the
+    open fails with "device not connected" (0x48F). Both fall back here,
+    because a headset being off is no reason for the assistant not to start.
+
+    Every open tries the pinned device first, so the headset is used again
+    the moment it is back. Changes are reported once each way, through
+    `announce`, rather than on every open: switching microphones silently is
+    the failure pinning exists to prevent, and a notice repeated on every
+    recording is one nobody reads.
+    """
+
+    def __init__(self, wanted: str | int | None, announce=None) -> None:
+        self.wanted = wanted
+        self._announce = announce
+        # The device the last successful open used. None is the default.
+        self.device: int | None = None
+        # True while the pinned device is unusable and the default stands in.
+        self.fallen_back = False
+
+    @property
+    def pinned(self) -> bool:
+        return self.wanted is not None and self.wanted != ""
+
+    def open(self, **stream_kwargs) -> sd.InputStream:
+        """Open and start an input stream. Raises only when no microphone works."""
+        if self.pinned:
+            try:
+                index = resolve(self.wanted, kind="input")
+                stream = _start_input(index, stream_kwargs)
+            except (DeviceNotFound, sd.PortAudioError) as exc:
+                reason = str(exc)
+            else:
+                self.device = index
+                self._changed(fallen_back=False, reason="")
+                return stream
+        else:
+            reason = ""
+
+        stream = _start_input(None, stream_kwargs)
+        self.device = None
+        self._changed(fallen_back=self.pinned, reason=reason)
+        return stream
+
+    def _changed(self, *, fallen_back: bool, reason: str) -> None:
+        if fallen_back == self.fallen_back:
+            return
+        self.fallen_back = fallen_back
+        if fallen_back:
+            log.warning(
+                "pinned microphone '%s' unavailable (%s) — using %s",
+                self.wanted, reason, describe(None, "input"),
+            )
+            message = "My usual microphone isn't available, so I'm using the default one."
+        else:
+            log.warning("pinned microphone '%s' is back", self.wanted)
+            message = "Your usual microphone is back, I'm using it again."
+        if self._announce is not None:
+            self._announce(message)
+
+
+def probe_input(wanted: str | int | None) -> tuple[int | None, bool]:
+    """The microphone an InputSelector would open right now, and whether that
+    is a fallback — without announcing anything.
+
+    For the startup banner. Naming the pinned device there because its name
+    resolves says the headset in its case is the microphone, one line above
+    the warning that it is not. Only opening it tells the two apart.
+    """
+    if not (wanted is None or wanted == ""):
+        try:
+            index = resolve(wanted, kind="input")
+            _start_input(index, {"channels": 1}).close()
+        except (DeviceNotFound, sd.PortAudioError):
+            return None, True
+        return index, False
+    return None, False
+
+
+def _start_input(device: int | None, stream_kwargs: dict) -> sd.InputStream:
+    stream = sd.InputStream(device=device, **stream_kwargs)
+    try:
+        stream.start()
+    except Exception:
+        stream.close()
+        raise
+    return stream
 
 
 def describe(index: int | None, kind: str) -> str:

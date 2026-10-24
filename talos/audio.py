@@ -14,7 +14,7 @@ import numpy as np
 import sounddevice as sd
 
 from talos.config import AudioConfig
-from talos.devices import refresh, resolve_or_default
+from talos.devices import InputSelector, refresh, resolve_or_default
 
 log = logging.getLogger(__name__)
 
@@ -26,8 +26,11 @@ class Recorder:
     immediately and the caller stays responsive while the user is talking.
     """
 
-    def __init__(self, config: AudioConfig) -> None:
+    def __init__(self, config: AudioConfig, announce=None) -> None:
         self._config = config
+        # announce(message) is told when the pinned microphone drops out or
+        # comes back.
+        self._microphone = InputSelector(config.input_device, announce)
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._stream: sd.InputStream | None = None
@@ -50,18 +53,16 @@ class Recorder:
         # headset the default pointed at may have been unplugged since, and
         # PortAudio has to be asked again before it will admit that.
         refresh()
-        self.device = resolve_or_default(self._config.input_device, kind="input")
         with self._lock:
             self._frames.clear()
-        self._stream = sd.InputStream(
+        self._stream = self._microphone.open(
             samplerate=self._config.sample_rate,
             channels=1,
             dtype="float32",
             callback=self._callback,
             blocksize=int(self._config.sample_rate * 0.05),
-            device=self.device,
         )
-        self._stream.start()
+        self.device = self._microphone.device
 
     def stop(self) -> np.ndarray:
         """Stop and return what was captured, as mono float32."""

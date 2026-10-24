@@ -39,6 +39,9 @@ silence_threshold = 0.01
 # name when the default is not the one you want:
 #   input_device = "Realtek"
 #   output_device = 5
+# A pinned microphone is preferred, not required: when it is off or will not
+# open, Talos uses the Windows default, says so, and moves back to the pinned
+# one when it returns.
 # See the list with:  run main.py --devices
 input_device = ""
 output_device = ""

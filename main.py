@@ -201,10 +201,12 @@ def start_up(config, mute: bool) -> Assistant:
     print("Warming up — this is the cold-start cost, paid once so the first")
     print("sentence does not pay it.\n")
 
-    from talos.devices import describe, resolve_or_default
+    from talos.devices import describe, probe_input, resolve_or_default
 
     assistant = Assistant(config, mute=mute, confirm=console_confirm)
-    print(f"  mic       {describe(resolve_or_default(config.audio.input_device, kind='input'), 'input')}")
+    mic, fell_back = probe_input(config.audio.input_device)
+    unavailable = f" — '{config.audio.input_device}' unavailable" if fell_back else ""
+    print(f"  mic       {describe(mic, 'input')}{unavailable}")
     print(f"  speaker   {describe(resolve_or_default(config.audio.output_device, kind='output'), 'output')}")
     print(f"  speech    {config.stt.model} on {assistant.ears.device}")
     print(f"  reasoning {config.llm.model}")
@@ -241,7 +243,16 @@ def run_push_to_talk(assistant: Assistant, config, diagnostic: bool = False) -> 
     from pynput import keyboard
 
     hotkey = resolve_hotkey(config.audio.hotkey)
-    recorder = Recorder(config.audio)
+    # A microphone change is found as the key goes down, so it is printed then
+    # and spoken after the reply: said at once, it would be recorded as the
+    # start of the question.
+    unspoken: list[str] = []
+
+    def microphone_changed(message: str) -> None:
+        print(f"  {message}")
+        unspoken.append(message)
+
+    recorder = Recorder(config.audio, announce=microphone_changed)
     busy = threading.Lock()
     keyboard_listener = None
 
@@ -286,6 +297,10 @@ def run_push_to_talk(assistant: Assistant, config, diagnostic: bool = False) -> 
         except Exception:  # noqa: BLE001 — one bad turn must not kill the loop
             log.exception("turn failed")
         finally:
+            while unspoken:
+                message = unspoken.pop(0)
+                if assistant.voice is not None:
+                    assistant.voice.say(message)
             busy.release()
             # Checked after the turn rather than during it: the skill that
             # asks for the switch runs inside the turn, and stopping the
@@ -295,7 +310,14 @@ def run_push_to_talk(assistant: Assistant, config, diagnostic: bool = False) -> 
 
     def on_press(key) -> None:
         if key == hotkey and not recorder.recording and not busy.locked():
-            recorder.start()
+            try:
+                recorder.start()
+            except Exception as exc:  # noqa: BLE001 — this is the listener thread
+                # Not even the default microphone opened. Raising here would
+                # kill the key listener, and with it the assistant; the next
+                # press tries again, by which time one may be plugged in.
+                print(f"  no microphone available: {exc}\n")
+                return
             print("listening...")
 
     def on_release(key) -> None:
@@ -353,7 +375,17 @@ def spoken_confirm(assistant: Assistant, listener, skill_name: str, permission, 
 def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int:
     from talos.wake import WakeListener
 
-    listener = WakeListener(config.audio, config.wake, assistant.ears.transcribe)
+    def announce(message: str) -> None:
+        # Spoken as well as printed: in this mode nobody is looking at the
+        # screen, and a microphone that changed without a word is the kind of
+        # fault that looks like the assistant ignoring you.
+        print(f"  {message}")
+        if assistant.voice is not None:
+            assistant.voice.say(message)
+
+    listener = WakeListener(
+        config.audio, config.wake, assistant.ears.transcribe, announce=announce
+    )
     # Rebound now that the listener exists: confirmations are spoken and heard
     # through the same stream the wake word uses.
     assistant.set_confirm(
@@ -419,6 +451,12 @@ def main() -> int:
         help="print what was heard, which skills ran, and what they returned",
     )
     args = parser.parse_args()
+
+    # Line by line even when stdout is a pipe. Started in the background, as
+    # a service or by another program, Python buffers stdout in blocks, and
+    # "Ready." sits in the buffer while whoever started it concludes nothing
+    # is happening — or that it is running when it has already crashed.
+    sys.stdout.reconfigure(line_buffering=True)
 
     if args.devices:
         from talos.devices import listing
