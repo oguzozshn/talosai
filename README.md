@@ -1,3 +1,5 @@
+<img src="assets/talos.svg" alt="Talos: a bronze helmet inside a ring" width="96" align="right">
+
 # Talos
 
 A voice assistant for Windows that runs on your own machine. Speech, reasoning,
@@ -5,6 +7,8 @@ memory and voice are local; two named skills reach the internet and are listed
 below.
 
 Named after the bronze automaton of Greek myth that patrolled the shores of Crete — arguably the first artificial guardian anyone imagined. It waits quietly, answers when called, and gets out of the way.
+The logo is that guardian's helmet, inside the ring of his patrol; the three
+marks are the three times a day he walked it.
 
 ## Design constraints
 

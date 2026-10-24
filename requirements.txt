@@ -44,3 +44,8 @@ onnxruntime>=1.17,<2
 # Piper is invoked as an external binary on Windows rather than a Python
 # package; scripts/test_tts.py locates it and falls back to the built-in
 # Windows voice if it is not there yet. See scripts/README.md.
+
+# --- Windows -----------------------------------------------------------------
+# COM access: the desktop shortcut (scripts/make_shortcut.py), and the Windows
+# Search index for finding files.
+pywin32>=306

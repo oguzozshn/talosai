@@ -12,6 +12,10 @@ run main.py            hold F9 while you talk
 run main.py --text     type instead of speaking
 ```
 
+Or double-click **Talos** on the desktop, which starts wake mode. The shortcut
+is made once with `run scripts\make_shortcut.py`, and again after moving the
+project.
+
 In wake mode, say the name and wait for "Yes?", or say it all in one breath —
 "Talos, what did I work on today?". After a reply it keeps listening for ten
 seconds, so a follow-up needs no name.

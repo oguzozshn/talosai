@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Talos: the bronze guardian of Crete, who walked the island's shore three
+       times a day. The helmet is the guardian; the ring is the patrol, and the
+       three marks on it are the three rounds. -->
+  <defs>
+    <linearGradient id="bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2c287"/>
+      <stop offset="0.5" stop-color="#c47f3e"/>
+      <stop offset="1" stop-color="#7d4a1f"/>
+    </linearGradient>
+    <linearGradient id="crest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b8432f"/>
+      <stop offset="1" stop-color="#7e2618"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="128" cy="128" r="124" fill="#141a22"/>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="url(#bronze)" stroke-width="9"/>
+  <g fill="#f2c287">
+    <circle cx="128" cy="18" r="7"/>
+    <circle cx="223.3" cy="183" r="7"/>
+    <circle cx="32.7" cy="183" r="7"/>
+  </g>
+
+  <path fill="url(#crest)" d="M114 70 L114 44 C114 30 142 30 142 44 L142 70 Z"/>
+
+  <path fill="url(#bronze)" fill-rule="evenodd" d="
+    M128 58 C172 58 194 90 194 132 L194 174 C194 188 184 198 170 200 L143 202 L143 152 L113 152 L113 202 L86 200 C72 198 62 188 62 174 L62 132 C62 90 84 58 128 58 Z
+    M78 126 Q100 114 122 121 L122 140 Q100 143 82 137 Z
+    M178 126 Q156 114 134 121 L134 140 Q156 143 174 137 Z"/>
+  <path fill="none" stroke="#f7d9b0" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round"
+        d="M88 98 C98 78 112 70 128 69"/>
+</svg>
