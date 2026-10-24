@@ -175,6 +175,30 @@ Verdict: a credible fine-tuning base. The context cost is real and has to be
 paid in VRAM, but it fits. It is not a drop-in replacement: at Talos's current
 4096 it breaks on every skill call. The model setting is unchanged.
 
+### A 12B: `gemma4:12b`
+
+2026-10-24, Ollama 0.40.6, on Talos's own settings (`num_ctx` 4096).
+`scripts/compare_models.py`, twelve cases, three runs each, with `qwen3:8b`
+run again the same day as the baseline:
+
+| Model | Correct | Wrong | Missed | Unwanted | Bad args | Median |
+|---|---|---|---|---|---|---|
+| `qwen3:8b` | **36/36** | 0 | 0 | 0 | 0 | **1.21 s** |
+| `gemma4:12b` | **36/36** | 0 | 0 | 0 | 0 | 3.28 s |
+
+Unlike the 4B, it fits its prompt into 4096 and calls skills without error.
+It also got the project-status case the 4B missed. But on these cases there is
+nothing left to win: both are perfect, and the 12B takes 2.7 times as long.
+
+**It does not fit beside Whisper.** The card is an 8 GB RTX 5070 Laptop.
+With `gemma4:12b` loaded and nothing else, 7688 MiB of 8151 was in use;
+`qwen3:8b` in the same state used 6443. Whisper's 1.2 GB fits beside the 8B
+and not beside the 12B, so live it would spill to the CPU and get slower
+still.
+
+Verdict: no change. Worth trying again only on a larger card, or if a case
+turns up that the 8B gets wrong.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the
