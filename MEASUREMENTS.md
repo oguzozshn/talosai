@@ -110,6 +110,71 @@ exactly the kind of filler question the character definition tells it not to
 ask. Against that, Qwen is expected to be the better tool caller, which is what
 phase 3 depends on. Decide it there, by measuring, not here.
 
+### A 4B, measured again: `qwen3:4b-instruct`
+
+2026-09-26, Ollama 0.33.3, 37 skills loaded. The question was whether a model
+small enough to fine-tune locally (QLoRA on this card) could replace the 8B.
+The tag is `qwen3:4b-instruct`; `qwen3:4b-instruct-2507` does not exist in the
+registry.
+
+**The full prompt no longer fits in 4096 on this model.** Character, profile
+and 37 tool schemas measure:
+
+| | Prompt tokens, before the question has been answered |
+|---|---|
+| `qwen3:8b` | 3444 |
+| `qwen3:4b-instruct` | 4083 |
+
+Same tokenizer; the 4B's chat template renders tool schemas more verbosely.
+At 4096 every turn that calls a skill fails outright — `request (4110 tokens)
+exceeds the available context size` — because the tool result pushes it over.
+On Talos's own settings it scored 18/21, with 15 cases lost to that error.
+So the comparison below runs both models at 8192, which is what the 4B would
+need in practice.
+
+Worth noticing for the 8B too: 3444 of 4096 is 84% spent before anyone speaks.
+One tool result or a couple of turns of history fills the rest.
+
+`scripts/compare_models.py`, twelve cases, three runs each, `num_ctx` 8192:
+
+| Model | Correct | Wrong | Missed | Unwanted | Bad args | Median |
+|---|---|---|---|---|---|---|
+| `qwen3:8b` | **36/36** | 0 | 0 | 0 | 0 | 1.17 s |
+| `qwen3:4b-instruct` | 33/36 | 0 | 3 | 0 | 0 | 0.91 s |
+
+The 4B's restraint is perfect. It missed one case three times out of three:
+"What's the status of the Talos project?" — it answered from the profile, which
+says he is building Talos, instead of looking. Consistent rather than noisy.
+
+The same caveat as before applies more strongly now: 12 cases cover 7 of 37
+skills.
+
+Latency and memory, with Whisper `large-v3-turbo` resident. Warm model, median
+of three after one discarded run, prompt *"Kendini bir cümleyle tanıt."* with
+the real system prompt. First-token numbers are low because the identical
+prefix is cached between runs; compare them with each other, not with the
+table above.
+
+| Model | Context | Tools | First token | Total | Model VRAM | Card total |
+|---|---|---|---|---|---|---|
+| `qwen3:8b` | 4096 | yes | 0.06 s | 0.83 s | 5.6 GB | 7748 MiB |
+| `qwen3:4b-instruct` | 8192 | yes | 0.08 s | 0.54 s | 3.9 GB | 6198 MiB |
+| `qwen3:4b-instruct` | 4096 | no | 0.04 s | 0.26 s | 3.2 GB | 5530 MiB |
+
+Baseline with nothing loaded was 1636 MiB (desktop, browser); Whisper added
+1.2 GB. Even at 8192 context the 4B leaves 1.5 GB more free than the 8B does
+at 4096.
+
+**Language.** `config/character.md` says Talos works in English in both
+directions. Asked three things in Turkish, the 4B answered all three in English,
+in character. The 8B answered all three in Turkish, against its instructions.
+So on this measure the smaller model is the more obedient one. Its Turkish
+quality is untested, because it would not produce any.
+
+Verdict: a credible fine-tuning base. The context cost is real and has to be
+paid in VRAM, but it fits. It is not a drop-in replacement: at Talos's current
+4096 it breaks on every skill call. The model setting is unchanged.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the
