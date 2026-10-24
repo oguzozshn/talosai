@@ -49,3 +49,6 @@ onnxruntime>=1.17,<2
 # COM access: the desktop shortcut (scripts/make_shortcut.py), and the Windows
 # Search index for finding files.
 pywin32>=306
+# The time zone database. Windows has none Python can read, and time_in works
+# out the time anywhere from it, without the internet.
+tzdata>=2024.1

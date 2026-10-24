@@ -28,6 +28,7 @@ AREAS = {
     "argos": ("your studies and goals", "hours left on each study plan, and the goals you keep in Argos"),
     "todoist": ("Todoist", "what is due, adding tasks, marking them done"),
     "weather": ("weather", "current conditions anywhere"),
+    "clock": ("the time", "the time anywhere in the world, worked out here without the internet"),
     "search": ("the web", "looking up anything current"),
     "send": ("sending files", "sending a file to your phone over Telegram"),
     "screen": ("your screen", "reading the text on either monitor"),
@@ -48,6 +49,59 @@ HOW_IT_WORKS = (
     "I remember our conversations in a database here, and I can only read the "
     "folders you listed in my settings."
 )
+
+
+def _area_for(wanted: str, grouped: dict[str, list[str]]) -> str | None:
+    """The module an area question is about, matched loosely.
+
+    On the area name or the module first, so "projects", "my projects" and
+    "project_status" land in the same place; then on the skills' own names,
+    so "sending a file" finds send_file.
+    """
+    for module, (area, _) in AREAS.items():
+        if module in grouped and (
+            wanted in area.casefold() or wanted in module or area.casefold() in wanted
+        ):
+            return module
+    # Then by words, scored, so "sending a file" goes to send_file (two
+    # words) rather than find_file (one), and "my day" finds "your day".
+    words = {_stem(w) for w in wanted.replace("_", " ").split() if len(w) > 2} - {"my", "the", "your"}
+    best, best_score = None, 0
+    for module, names in grouped.items():
+        if module not in AREAS:
+            continue
+        vocabulary = {_stem(w) for w in AREAS[module][0].split()}
+        vocabulary |= {_stem(part) for name in names for part in name.split("_")}
+        score = len(words & vocabulary)
+        if score > best_score:
+            best, best_score = module, score
+    return best
+
+
+def _stem(word: str) -> str:
+    word = word.casefold()
+    for ending in ("ing", "es", "s"):
+        if word.endswith(ending) and len(word) - len(ending) >= 3:
+            return word[: -len(ending)]
+    return word
+
+
+def _how_to_ask(names: list[str]) -> str:
+    """What to say to use these skills, from the examples written in each.
+
+    Asked "how do I use that", reading out function names tells nobody what
+    to say. The examples are things a person would say, so they are the
+    answer — two per skill, in English, which is enough to show the shape.
+    """
+    from talos.skills import load
+
+    phrases: list[str] = []
+    for name in names:
+        examples = [e for e in load().get(name).examples if e.isascii()]
+        phrases += [f'"{e}"' for e in examples[:2]]
+    if not phrases:
+        return ""
+    return "You could say " + ", ".join(phrases[:-1]) + f", or {phrases[-1]}."
 
 
 def _grouped() -> dict[str, list[str]]:
@@ -83,13 +137,15 @@ def about_me(topic: str = "skills") -> str:
     see how many there are or what they are grouped into.
 
     Args:
-        topic: "skills" for what Talos can do, an area such as projects or Todoist for detail, "how" for how it works, "limits" for what it is bad at
+        topic: "skills" for what Talos can do, an area such as files or Todoist for what to say to use it, "how" for how it works, "limits" for what it is bad at
 
     Examples:
         what can you do
         how do you work
         what are you bad at
         what can you do with Todoist
+        how do I use the file features
+        how do I ask you to send a file
         neler yapabilirsin
     """
     wanted = topic.strip().casefold()
@@ -103,14 +159,10 @@ def about_me(topic: str = "skills") -> str:
     grouped = _grouped()
 
     if wanted:
-        # Match on the area name or on the module, so "projects", "my
-        # projects" and "project_status" all land in the same place.
-        for module, (area, detail) in AREAS.items():
-            if module not in grouped:
-                continue
-            if wanted in area.casefold() or wanted in module or area.casefold() in wanted:
-                names = ", ".join(n.replace("_", " ") for n in grouped[module])
-                return f"For {area} I can help with {detail}. The skills are: {names}."
+        module = _area_for(wanted, grouped)
+        if module is not None:
+            area, detail = AREAS[module]
+            return f"For {area} I can help with {detail}. {_how_to_ask(grouped[module])}"
         return (
             f"I have nothing for {topic}. Ask what I can do in general and I will "
             f"tell you the areas I cover."
@@ -121,8 +173,14 @@ def about_me(topic: str = "skills") -> str:
     listed = ", ".join(covered[:-1]) + f", and {covered[-1]}" if len(covered) > 1 else covered[0]
 
     # Deliberately not a list of every name. Spoken, that is noise.
+    #
+    # The last sentence is for the model, not the owner. Handed only the
+    # area names, it filled them in from imagination — "find, copy, move and
+    # send files" — and Talos cannot copy or move anything.
     return (
         f"I have {total} skills across {len(covered)} areas: {listed}. "
-        f"Ask about any one of those and I will go into detail. "
-        f"You never need to name a skill — say what you want and I will pick."
+        f"Ask how to use any one of them and I will tell you what to say. "
+        f"You never need to name a skill — say what you want and I will pick. "
+        f"(Say these areas as they are. Do not describe what each one does "
+        f"beyond its name; that is what asking about one area is for.)"
     )

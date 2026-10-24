@@ -295,6 +295,28 @@ On seventeen wider cases, routed, 15/17 the first time: "What can you do?" and
 offered. Run again in the same order, 22/22 — no miss repeated, and unrouted
 both were 5/5. Noted rather than explained.
 
+**Turkish, and one vector per text.** Same day, 26 skills, with `time_in`
+added. Twelve Turkish requests found two misses — and both were, nearly word
+for word, examples written in the skills that missed them. Every skill had
+been one vector: description and examples joined, each example averaged into
+the rest. Each example as its own vector, scoring a skill by its closest one,
+fixed the Turkish and lost an English case ("didn't we talk about the parser
+bug" no longer found `recall`, which no example resembles). Keeping the joined
+text as one more candidate alongside the examples kept both:
+
+Closest 6, measured as each version was tried — the Turkish set grew from 12
+to 14 along the way, so the rows are not on identical sets:
+
+| | English, 34 | Turkish |
+|---|---|---|
+| One joined vector per skill | 34/34 | 10/12 |
+| Each example only | 33/34 | 14/14 |
+| Joined and each example | 34/34 | 14/14 |
+
+All 45 now sit in `check_router.py`: 45/45 at closest 6, 44/45 at closest 4.
+
+`compare_models.py` with the router, 36/36, median 1.27 s.
+
 ## The assembled chain
 
 Text in, muted, `qwen3:8b` and `tr_TR-dfki-medium`. "First audio" is from the

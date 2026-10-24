@@ -40,14 +40,22 @@ DOCUMENT = "search_document: "
 QUERY = "search_query: "
 
 
-def _skill_text(registry: Registry, name: str) -> str:
+def _skill_texts(registry: Registry, name: str) -> list[str]:
+    """Everything about the skill in one text, and then each example on its own.
+
+    Both. Joined alone, the examples were averaged into one vector where each
+    counted for little: "Almanya'da saat kaç", word for word one of time_in's
+    examples, did not reach its top six. Separate alone, a request phrased
+    unlike any example lost the description that would have matched it —
+    "didn't we talk about the parser bug" stopped finding recall.
+    """
     skill = registry.get(name)
     args = "; ".join(
         f"{arg}: {spec.get('description', '')}"
         for arg, spec in skill.parameters.get("properties", {}).items()
     )
-    examples = ". ".join(skill.examples)
-    return f"{name.replace('_', ' ')}. {skill.description} {args}. {examples}"
+    whole = f"{name.replace('_', ' ')}. {skill.description} {args}. {'. '.join(skill.examples)}"
+    return [whole, *skill.examples]
 
 
 class Router:
@@ -56,7 +64,9 @@ class Router:
         self._top = top
         self._embed = embed or _embed
         self._names: list[str] = []
+        # One row per text; _owner[i] is the index in _names it belongs to.
         self._vectors: np.ndarray | None = None
+        self._owner: np.ndarray | None = None
         # Skills used in the last few turns, so a follow-up such as "send it
         # to me" still finds the skill the previous answer was built on.
         self._recent: deque[set[str]] = deque(maxlen=2)
@@ -64,12 +74,19 @@ class Router:
     def prepare(self) -> bool:
         """Embed every skill once. False if the embedding model is unavailable."""
         names = self._registry.names
-        vectors = self._embed([DOCUMENT + _skill_text(self._registry, n) for n in names])
+        texts: list[str] = []
+        owner: list[int] = []
+        for index, name in enumerate(names):
+            for text in _skill_texts(self._registry, name):
+                texts.append(DOCUMENT + text)
+                owner.append(index)
+        vectors = self._embed(texts)
         if vectors is None:
             log.warning("skill router off: could not embed the skills")
             return False
         self._names = names
         self._vectors = _normalised(vectors)
+        self._owner = np.asarray(owner)
         return True
 
     def choose(self, request: str) -> list[str] | None:
@@ -79,7 +96,10 @@ class Router:
         query = self._embed([QUERY + request])
         if query is None:
             return None
-        scores = self._vectors @ _normalised(query)[0]
+        similarity = self._vectors @ _normalised(query)[0]
+        # A skill scores as well as its closest text.
+        scores = np.full(len(self._names), -np.inf)
+        np.maximum.at(scores, self._owner, similarity)
         ranked = [self._names[i] for i in np.argsort(-scores)]
         chosen = set(ranked[: self._top])
         chosen.update(n for n in ALWAYS if n in self._registry)

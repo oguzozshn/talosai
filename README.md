@@ -120,7 +120,7 @@ discovered from files and called by the model.
 | 0 — environment | Done. Numbers in [MEASUREMENTS.md](MEASUREMENTS.md) |
 | 1 — the chain | Done, push-to-talk. 0.93 s to first audio |
 | 2 — wake word | Done. No trained model — see below |
-| 3 — skills | Done: 25 skills, sandboxed, permission-tiered |
+| 3 — skills | Done: 26 skills, sandboxed, permission-tiered |
 | 4 — memory | Done: profile, recall, and bounded summarisation |
 | 5 — living with it | Partly: GPU release and mode switching, no autostart |
 

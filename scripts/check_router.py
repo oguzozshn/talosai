@@ -49,7 +49,9 @@ CASES = [
     ("Remind me what we just discussed.", "last_conversations"),
     ("Read me the error on the screen.", "read_screen"),
     ("Is it cold outside?", "weather"),
-    ("What time is it in New York right now?", "web_search"),
+    ("What time is it in New York right now?", "time_in"),
+    ("Is it already evening in Tokyo?", "time_in"),
+    ("How do I get you to send me a file?", "about_me"),
     ("Who won the last World Cup?", "web_search"),
     ("Quit listening, I'm in a meeting.", "listening"),
     ("Correct my English while we talk.", "english_practice"),
@@ -59,6 +61,19 @@ CASES = [
     ("Bugün neler var?", "my_day"),
     ("Dersler klasörü nerede?", "find_file"),
     ("Hava nasıl olacak?", "weather"),
+    # Turkish. nomic-embed-text is mostly English, and these are where the
+    # router first fell short — see MEASUREMENTS.md.
+    ("Almanya'da saat kaç?", "time_in"),
+    ("Fransa'da şimdi saat kaç?", "time_in"),
+    ("Yarın ne var?", "my_day"),
+    ("Dersler klasörünü aç", "show_in_explorer"),
+    ("CV'mi telefonuma gönder", "send_file"),
+    ("Todoist'e süt almayı ekle", "todoist_add"),
+    ("Vizeye kaç saat çalışmam kaldı?", "study_progress"),
+    ("Final sınavına ne kadar çalışmam lazım?", "study_progress"),
+    ("Bunu not al: toplantı cuma", "take_note"),
+    ("Ekranda ne yazıyor?", "read_screen"),
+    ("Geçen hafta BACnet hakkında ne konuştuk?", "recall"),
 ]
 
 

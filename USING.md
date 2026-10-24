@@ -1,6 +1,6 @@
 # Talking to Talos
 
-Twenty-five skills. You never name them — you say what you want and the model
+Twenty-six skills. You never name them — you say what you want and the model
 picks. The phrases below are examples, not commands; anything that means the
 same thing works.
 
@@ -192,8 +192,11 @@ things.
 
 > "What day is it?"
 > "How many days until Friday?"
+> "What time is it in New York?"
 
-No skill involved; the date is in every prompt.
+The date is in every prompt. The time anywhere else is worked out here from
+the time zone database, daylight saving included — web search could only find
+pages with a clock drawn by JavaScript, which a search result cannot show.
 
 ---
 
