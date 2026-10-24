@@ -120,6 +120,9 @@ class Assistant:
         # conversation: two turns interleaved would mix their skill calls and
         # their history.
         self._turn = threading.Lock()
+        # Set by whichever loop owns the microphone, to keep it from hearing
+        # Talos speak unprompted. See announce().
+        self.hold_microphone = None
 
         # No confirm callback means skills above OPEN refuse rather than run.
         # That is the right default: an assistant with no way to ask should not
@@ -244,6 +247,23 @@ class Assistant:
             offered=self.brain.last_offered,
                 reply=" ".join(sentences),
             )
+
+    def announce(self, text: str) -> None:
+        """Say something nobody asked for: a reminder, the morning brief.
+
+        Waits for any turn in progress to finish rather than talking over it,
+        and keeps the microphone from taking Talos's own voice for a command.
+        """
+        with self._turn:
+            print(f"  {text}")
+            if self.voice is None:
+                return
+            hold = self.hold_microphone
+            if hold is None:
+                self.voice.say(text)
+            else:
+                with hold():
+                    self.voice.say(text)
 
     def hear(self, audio: np.ndarray) -> str:
         """Transcribe audio that did not come through the microphone, such as a voice message."""

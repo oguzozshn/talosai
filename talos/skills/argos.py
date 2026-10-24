@@ -85,6 +85,9 @@ def _target_day(day: str) -> date | None:
 
 
 def open_tasks(data: Path, on: date) -> str:
+    # "Due by 2026-10-24", on the 24th, came back from the model as "nothing
+    # due until October 24th".
+    when = "today or overdue" if on == date.today() else f"by {on.isoformat()}"
     tasks = (_load(data / "tasks" / "tasks.json") or {}).get("tasks", [])
     lists = {
         item.get("id"): item.get("name", "")
@@ -95,10 +98,10 @@ def open_tasks(data: Path, on: date) -> str:
     undated = len([t for t in open_ if not t.get("due")])
 
     if not due:
-        return f"No Argos tasks are due by {on.isoformat()}. {undated} open task(s) have no date."
+        return f"No Argos tasks are due {when}. {undated} open task(s) have no date."
 
     due.sort(key=lambda t: (str(t["due"]), t.get("priority", 4)))
-    lines = [f"{len(due)} Argos task(s) due by {on.isoformat()}:"]
+    lines = [f"{len(due)} Argos task(s) due {when}:"]
     for task in due:
         when = str(task["due"])
         late = " (overdue)" if when[:10] < on.isoformat() else ""
@@ -183,9 +186,15 @@ def plan_progress(data: Path, name: str, today: date) -> str:
 
 
 def sessions_on(plans_file: dict, day: date, plan_ids: set[str] | None = None) -> list[str]:
-    """The study sessions planned for a day, as one line each."""
+    """The study sessions planned for a day, one line per plan and part.
+
+    Worded as time to spend, never as a time of day. "Vize (midterm), 1 h"
+    was read back as "the midterm is in one hour" — and Argos sessions have
+    no clock time at all. Sessions for the same thing are added together,
+    rather than said twice.
+    """
     by_id = {p["id"]: p for p in plans_file.get("planlar", [])}
-    lines = []
+    totals: dict[tuple[str, str], int] = {}
     for s in plans_file.get("takvim", {}).get(day.isoformat(), []):
         # Missed sessions stay on the calendar marked yapilmadi; they are
         # history, not plan.
@@ -193,10 +202,10 @@ def sessions_on(plans_file: dict, day: date, plan_ids: set[str] | None = None) -
             continue
         plan = by_id.get(s.get("planId"), {})
         alt = next((a for a in plan.get("altlar", []) if a.get("id") == s.get("altId")), None)
-        label = f"{plan.get('ad', '')}{' — ' + _part_name(alt) if alt else ''}"
+        label = f"{plan.get('ad', '')}{', for the ' + _part_name(alt) if alt else ''}"
         state = "done" if s.get("yapildi") else "to do"
-        lines.append(f"{label}, {_duration(int(s.get('dk') or 0))} ({state})")
-    return lines
+        totals[(label, state)] = totals.get((label, state), 0) + int(s.get("dk") or 0)
+    return [f"{_duration(minutes)} of study: {label} ({state})" for (label, state), minutes in totals.items()]
 
 
 def goals_and_reminders(data: Path) -> str:

@@ -225,6 +225,26 @@ pages with a clock drawn by JavaScript, which a search result cannot show.
 
 ---
 
+## Without being asked
+
+Two things, both off in the quiet hours (23:00 to 08:00 unless changed):
+
+- **The morning brief.** The first time Talos is running between 08:30 and
+  noon, it says what the day holds — study sessions, plan slots, what is due
+  in Argos and Todoist — in a few sentences. Once a day; a restart does not
+  repeat it.
+- **Reminders**, ten minutes before anything with a clock time: weekly plan
+  slots and Argos tasks due at an hour. Argos study sessions have no time of
+  day, so they are in the brief instead.
+
+Both are said out loud and, when Telegram is set up, sent there too — so the
+reminder reaches you when you are not at the desk. With `--telegram`, nothing
+is said out loud. Times, the reminder lead and where it goes are under
+`[proactive]` in the settings.
+
+Talos waits for a conversation in progress to finish before it speaks, and
+while it speaks the microphone is ignored, so it does not hear itself.
+
 ## What it learns about you
 
 `config/profile.md` is the one thing Talos knows about you without going

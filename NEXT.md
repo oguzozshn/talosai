@@ -92,14 +92,17 @@ HACKING.md explains what it would take to finish them.
 
 ### 4. Let it speak without being asked
 
-Nothing currently happens unprompted. There are no timers, no reminders, no
-"your meeting starts in ten minutes". Several things the owner has asked for
-depend on this and none of the plumbing exists.
+Built on 2026-10-24: the morning brief and reminders before anything with a
+clock time, in `talos/proactive.py`. The seam is `Assistant.announce`: it
+takes the turn lock, so it never talks over a reply, and holds the wake
+listener (`WakeListener.hold`) so Talos's own voice is not heard as a command.
+Timers and calendar alerts would sit on the same seam.
 
-The hard part is not the timer, it is interrupting: the wake listener owns the
-microphone and the voice, and something needs to speak through them without a
-turn being in progress. Design that seam before writing any feature on top of
-it, because reminders, timers and calendar alerts all sit on it.
+Not yet tried with a real microphone in a real room: whether the hold drops
+everything it should, and how a reminder that lands mid-sentence from the
+owner feels — it waits for the turn, but not for someone who is still talking
+before they said the wake word. Argos study sessions have no clock time, so
+they are only in the brief; reminding before them needs Argos to have one.
 
 ### 5. Make it survive a day
 

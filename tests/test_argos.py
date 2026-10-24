@@ -85,7 +85,7 @@ class TestPlans:
 
     def test_missed_sessions_are_not_today_plan(self, data):
         text = argos.plan_progress(data, "", TODAY)
-        assert "Vize (midterm), 1 h (to do)" in text
+        assert "1 h of study: Software Requirements Engineering, for the Vize (midterm) (to do)" in text
         assert "Game Programming, 2 h" not in text
 
     def test_an_unknown_name_lists_the_real_ones(self, data):
@@ -125,7 +125,7 @@ class TestDay:
         from talos.skills import day
 
         text = day.overview(TODAY, TODAY)
-        assert "Study sessions:" in text and "Vize (midterm), 1 h (to do)" in text
+        assert "Study sessions:" in text and "1 h of study: Software Requirements Engineering, for the Vize (midterm) (to do)" in text
         assert "Today at ten" in text
         assert "Todoist: Nothing is due today." in text
 

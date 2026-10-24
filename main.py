@@ -388,6 +388,7 @@ def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int
     listener = WakeListener(
         config.audio, config.wake, assistant.ears.transcribe, announce=announce
     )
+    assistant.hold_microphone = listener.hold
     # Rebound now that the listener exists: confirmations are spoken and heard
     # through the same stream the wake word uses.
     assistant.set_confirm(
@@ -429,6 +430,7 @@ def run_wake_word(assistant: Assistant, config, diagnostic: bool = False) -> int
     except KeyboardInterrupt:
         listener.stop()
         print()
+    assistant.hold_microphone = None
     return 0
 
 
@@ -535,6 +537,12 @@ def main() -> int:
         from talos import telegram
 
         server = telegram.start(config.telegram, assistant, describe_action, config.audio.sample_rate)
+        # After Telegram, so a reminder can be sent there as well as said.
+        from talos import proactive
+
+        # Answering only on Telegram means nobody is at the machine, so
+        # nothing is said out loud there.
+        proactive.start(assistant, speak=not args.telegram)
         if args.telegram:
             if server is None:
                 print("Telegram is not set up. USING.md says how.")

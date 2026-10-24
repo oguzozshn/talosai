@@ -183,6 +183,21 @@ router_top = 6
 # pushed to GitHub the next time anyone runs git add.
 token = ""
 
+[proactive]
+# Talos speaking without being asked: a morning brief, and a reminder before
+# anything planned at a clock time. Said out loud and, when Telegram is set
+# up, sent there too. Never during the quiet hours.
+enabled = true
+# Given the first time Talos is running between these two times, once a day.
+brief = true
+brief_time = "08:30"
+brief_until = "12:00"
+remind_minutes = 10
+quiet_from = "23:00"
+quiet_until = "08:00"
+speak = true
+telegram = true
+
 [study]
 # Course material: one folder per course, with its slides (.pptx), notes and
 # books (.pdf), and anything in .docx, .txt or .md. Indexed in the background

@@ -174,6 +174,25 @@ class TtsConfig:
 
 
 @dataclass(frozen=True)
+class ProactiveConfig:
+    """Speaking without being asked. See talos/proactive.py."""
+
+    enabled: bool = True
+    # The morning brief: given the first time Talos is running between these.
+    brief: bool = True
+    brief_time: str = "08:30"
+    brief_until: str = "12:00"
+    # How long before something with a clock time to remind about it.
+    remind_minutes: int = 10
+    # Nothing is said in this window, whatever is due.
+    quiet_from: str = "23:00"
+    quiet_until: str = "08:00"
+    # Where it is said: out loud, on Telegram, or both.
+    speak: bool = True
+    telegram: bool = True
+
+
+@dataclass(frozen=True)
 class StudyConfig:
     # One folder per course inside, holding its slides, notes and books.
     # Empty turns the course search and glossary off.
@@ -208,6 +227,7 @@ class Config:
     profile: ProfileConfig = field(default_factory=ProfileConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     study: StudyConfig = field(default_factory=StudyConfig)
+    proactive: ProactiveConfig = field(default_factory=ProactiveConfig)
 
     @property
     def character(self) -> str:
@@ -272,4 +292,5 @@ def load() -> Config:
         profile=_section(data, "profile", ProfileConfig),
         telegram=_section(data, "telegram", TelegramConfig),
         study=_section(data, "study", StudyConfig),
+        proactive=_section(data, "proactive", ProactiveConfig),
     )

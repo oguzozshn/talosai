@@ -28,6 +28,7 @@ Whether that trade is right is a measurement, not an opinion — run with
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import queue
 import re
@@ -184,9 +185,25 @@ class WakeListener:
         # from the same stream. Opening a second input stream on the same
         # device is how you find out the driver only allows one.
         self._chunks: queue.Queue | None = None
+        # Set while Talos speaks unprompted — a reminder, the morning brief —
+        # outside any turn. Everything heard meanwhile is its own voice.
+        self._holding = threading.Event()
 
-    @property
-    def vad(self):
+    @contextlib.contextmanager
+    def hold(self) -> Iterator[None]:
+        """Ignore the microphone while Talos speaks on its own initiative.
+
+        A reply is spoken inside the listening loop, which drains its own
+        echo afterwards. Something said from outside the loop — a reminder on
+        a timer — is not, and a sentence containing "Talos" coming back
+        through the microphone would wake it.
+        """
+        self._holding.set()
+        try:
+            yield
+        finally:
+            self._holding.clear()
+            self._spoke = True
         if self._vad is None:
             from silero_vad import load_silero_vad
 
@@ -345,6 +362,10 @@ class WakeListener:
                         starved = 0
                     continue
                 starved = 0
+
+                if self._holding.is_set():
+                    speech, silence_chunks, speech_started = [], 0, 0.0
+                    continue
 
                 now = time.monotonic()
                 if (
